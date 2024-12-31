@@ -28,7 +28,7 @@ const unsigned int bufferSize = arrayLength * sizeof(float);
 
 }
 
-- (instancetype) initWithDevice: (id<MTLDevice>) device
+- (instancetype) initWithDevice: (id<MTLDevice>) device customLibraryPath: (NSString*) customLibraryPath
 {
     self = [super init];
     if (self)
@@ -38,8 +38,19 @@ const unsigned int bufferSize = arrayLength * sizeof(float);
         NSError* error = nil;
 
         // Load the shader files with a .metal file extension in the project
+        id<MTLLibrary> defaultLibrary;
+        
+        if (customLibraryPath != nil) {
+            NSLog(@"Trying mCustomLibrary");
 
-        id<MTLLibrary> defaultLibrary = [_mDevice newDefaultLibrary];
+            NSURL *libraryURL = [NSURL fileURLWithPath:customLibraryPath];  // Convert the file path to an NSURL
+
+            defaultLibrary = [device newLibraryWithURL:libraryURL error:nil];  // Use newLibraryWithURL instead of newLibraryWithFile
+        } else {
+            NSLog(@"Trying newDefaultLibrary");
+            defaultLibrary = [_mDevice newDefaultLibrary];
+        }
+
         if (defaultLibrary == nil)
         {
             NSLog(@"Failed to find the default library.");
@@ -88,6 +99,7 @@ const unsigned int bufferSize = arrayLength * sizeof(float);
 
 - (void) sendComputeCommand
 {
+    NSLog(@"Sending:");
     // Create a command buffer to hold commands.
     id<MTLCommandBuffer> commandBuffer = [_mCommandQueue commandBuffer];
     assert(commandBuffer != nil);
@@ -107,6 +119,15 @@ const unsigned int bufferSize = arrayLength * sizeof(float);
     // Normally, you want to do other work in your app while the GPU is running,
     // but in this example, the code simply blocks until the calculation is complete.
     [commandBuffer waitUntilCompleted];
+
+
+    float *result = self.mBufferResult.contents;
+
+    int numResultsToPrint = 10;
+    NSLog(@"Results:");
+    for (int i = 0; i<numResultsToPrint; i++) {
+        NSLog(@"%f", result[i]);
+    }
 
     [self verifyResults];
 }
@@ -163,9 +184,15 @@ const unsigned int bufferSize = arrayLength * sizeof(float);
 
 // Expose the creation function for FFI
 __attribute__((visibility(("default"))))
-void* createMetalAdder(void) {
+void* createMetalAdder(const char *metallib_full_path) {
+    printf("%s\n", metallib_full_path);
+
     id<MTLDevice> device = MTLCreateSystemDefaultDevice();
-    MetalAdder* adder = [[MetalAdder alloc] initWithDevice:device];
+
+    NSString *customLibraryPath = [NSString stringWithUTF8String:metallib_full_path];
+
+        MetalAdder* adder = [[MetalAdder alloc] initWithDevice:device customLibraryPath:customLibraryPath];
+
     return (__bridge_retained void*)adder;  // Return a raw pointer to the MetalAdder object
 }
 

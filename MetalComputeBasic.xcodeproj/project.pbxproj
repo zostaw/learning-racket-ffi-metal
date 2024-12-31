@@ -9,7 +9,6 @@
 /* Begin PBXBuildFile section */
 		3ADA093523458F4800F5A9C6 /* CoreGraphics.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 3ADA093423458F4400F5A9C6 /* CoreGraphics.framework */; };
 		5FB82D19221CD515006D0331 /* MetalAdder.m in Sources */ = {isa = PBXBuildFile; fileRef = 5FB82D18221CD515006D0331 /* MetalAdder.m */; };
-		5FFAD4D421C8647E00384F46 /* main.m in Sources */ = {isa = PBXBuildFile; fileRef = 5FFAD4D321C8647E00384F46 /* main.m */; };
 		5FFAD4DC21C8648800384F46 /* Metal.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 5FFAD4DB21C8648800384F46 /* Metal.framework */; };
 		5FFAD4DE21C869B700384F46 /* add.metal in Sources */ = {isa = PBXBuildFile; fileRef = 5FFAD4DD21C869B700384F46 /* add.metal */; };
 /* End PBXBuildFile section */
@@ -34,7 +33,6 @@
 		5FB82D18221CD515006D0331 /* MetalAdder.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = MetalAdder.m; sourceTree = "<group>"; };
 		5FB82D1A221CE2C7006D0331 /* README.md */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
 		5FFAD4D021C8647E00384F46 /* libMetalComputeBasic */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = libMetalComputeBasic; sourceTree = BUILT_PRODUCTS_DIR; };
-		5FFAD4D321C8647E00384F46 /* main.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = main.m; sourceTree = "<group>"; };
 		5FFAD4DB21C8648800384F46 /* Metal.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Metal.framework; path = System/Library/Frameworks/Metal.framework; sourceTree = SDKROOT; };
 		5FFAD4DD21C869B700384F46 /* add.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = add.metal; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -83,7 +81,6 @@
 		5FFAD4D221C8647E00384F46 /* MetalComputeBasic */ = {
 			isa = PBXGroup;
 			children = (
-				5FFAD4D321C8647E00384F46 /* main.m */,
 				5FB82D17221CD515006D0331 /* MetalAdder.h */,
 				5FB82D18221CD515006D0331 /* MetalAdder.m */,
 				5FFAD4DD21C869B700384F46 /* add.metal */,
@@ -165,7 +162,6 @@
 			buildActionMask = 2147483647;
 			files = (
 				5FB82D19221CD515006D0331 /* MetalAdder.m in Sources */,
-				5FFAD4D421C8647E00384F46 /* main.m in Sources */,
 				5FFAD4DE21C869B700384F46 /* add.metal in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

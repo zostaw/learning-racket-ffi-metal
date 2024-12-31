@@ -16,7 +16,7 @@ extern "C" {
 #endif
 
 // Function to initialize the MetalAdder object
-void* createMetalAdder(void);
+void* createMetalAdder(const char *metallib_full_path);
 
 // Function to perform computation on GPU
 void performComputation(void* adder);
@@ -27,7 +27,8 @@ void performComputation(void* adder);
 
 
 @interface MetalAdder : NSObject
-- (instancetype) initWithDevice: (id<MTLDevice>) device;
+@property (nonatomic, strong) id<MTLBuffer> mBufferResult;
+- (instancetype) initWithDevice: (id<MTLDevice>) device customLibraryPath: (NSString*) customLibraryPath;
 - (void) prepareData;
 - (void) sendComputeCommand;
 @end
