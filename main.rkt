@@ -7,6 +7,11 @@
 (define-ffi-definer define-metal
   (ffi-lib "Build/Products/Debug/libMetalComputeBasic"))
 
+(define metallib-path
+  (string-append (path->string (current-directory))
+                 "Build/Products/Debug/default.metallib"))
+
+
 (define-metal create-metal-adder
               (_fun _string -> _pointer)
               #:c-id createMetalAdder)
@@ -15,6 +20,7 @@
               (_fun _pointer -> _void)
               #:c-id performComputation)
 
-(define adder (create-metal-adder  (string-append (path->string (current-directory)) "Build/Products/Debug/default.metallib")))
 
+
+(define adder (create-metal-adder  metallib-path))
 (perform-computation adder)
