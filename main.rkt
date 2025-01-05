@@ -1,7 +1,8 @@
 #lang racket
 
 (require ffi/unsafe
-         ffi/unsafe/define)
+         ffi/unsafe/define
+         racket/flonum)
 
 
 (define-ffi-definer define-metal
@@ -20,7 +21,21 @@
               (_fun _pointer -> _void)
               #:c-id performComputation)
 
+(define-metal perform-computation-with-inputs
+              (_fun _pointer
+                    [vecA : (_vector i _float)]
+                    [_int = (vector-length vecA)]
+                    [vecB : (_vector i _float)]
+                    [_int = (vector-length vecB)]
+                    -> _void)
+              #:c-id performComputationWithInputs)
+
+
+
 
 
 (define adder (create-metal-adder  metallib-path))
-(perform-computation adder)
+(define dataA (make-vector (expt 2 24) 1.0))
+(define dataB (make-vector (expt 2 24) 2.0))
+
+(perform-computation-with-inputs adder dataA dataB)

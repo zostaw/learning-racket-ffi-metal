@@ -93,8 +93,50 @@ const unsigned int bufferSize = arrayLength * sizeof(float);
     _mBufferB = [_mDevice newBufferWithLength:bufferSize options:MTLResourceStorageModeShared];
     _mBufferResult = [_mDevice newBufferWithLength:bufferSize options:MTLResourceStorageModeShared];
 
-    [self generateRandomFloatData:_mBufferA];
-    [self generateRandomFloatData:_mBufferB];
+    
+    
+    
+    // Example: Define and initialize dataA
+    size_t numElements = 1024;              // Number of floats
+    size_t bufferSize = numElements * sizeof(float); // Total size in bytes
+
+    // Allocate memory for the array
+    float* dataA = (float*)malloc(bufferSize);
+    float* dataB = (float*)malloc(bufferSize);
+
+    // Fill the array with data
+    for (size_t i = 0; i < numElements; ++i) {
+        dataA[i] = (float)i; // Example: Fill with increasing values
+        dataB[i] = (float)(i*2); // Example: Fill with increasing values
+    }
+
+    // Copy data into the Metal buffer
+    void* bufferContentsA = [_mBufferA contents];
+    memcpy(bufferContentsA, dataA, bufferSize);
+    
+    void* bufferContentsB = [_mBufferB contents];
+    memcpy(bufferContentsB, dataB, bufferSize);
+
+    // Free memory after use
+    free(dataA);
+    free(dataB);
+
+}
+
+- (void)prepareDataWithInputs:(float*)dataA dataB:(float*)dataB numElements:(size_t)numElements {
+    size_t bufferSize = numElements * sizeof(float);
+
+    // Allocate three buffers to hold our initial data and the result.
+    _mBufferA = [_mDevice newBufferWithLength:bufferSize options:MTLResourceStorageModeShared];
+    _mBufferB = [_mDevice newBufferWithLength:bufferSize options:MTLResourceStorageModeShared];
+    _mBufferResult = [_mDevice newBufferWithLength:bufferSize options:MTLResourceStorageModeShared];
+
+    // Copy data into the Metal buffers
+    void* bufferContentsA = [_mBufferA contents];
+    memcpy(bufferContentsA, dataA, bufferSize);
+
+    void* bufferContentsB = [_mBufferB contents];
+    memcpy(bufferContentsB, dataB, bufferSize);
 }
 
 - (void) sendComputeCommand
@@ -196,11 +238,21 @@ void* createMetalAdder(const char *metallib_full_path) {
     return (__bridge_retained void*)adder;  // Return a raw pointer to the MetalAdder object
 }
 
+
+
 // Expose the computation function for FFI
 __attribute__((visibility(("default"))))
 void performComputation(void* adder) {
     MetalAdder* metalAdder = (__bridge MetalAdder*)adder;
     [metalAdder prepareData];
+    [metalAdder sendComputeCommand];
+    NSLog(@"Execution finished");
+}
+
+__attribute__((visibility("default")))
+void performComputationWithInputs(void* adder, float* dataA, size_t numElements, float* dataB, size_t _numElementsB) {
+    MetalAdder* metalAdder = (__bridge MetalAdder*)adder;
+    [metalAdder prepareDataWithInputs:dataA dataB:dataB numElements:numElements];
     [metalAdder sendComputeCommand];
     NSLog(@"Execution finished");
 }

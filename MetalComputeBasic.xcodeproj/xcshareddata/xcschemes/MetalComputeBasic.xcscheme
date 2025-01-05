@@ -16,7 +16,7 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "5FFAD4CF21C8647E00384F46"
-               BuildableName = "MetalComputeBasic"
+               BuildableName = "libMetalComputeBasic"
                BlueprintName = "MetalComputeBasic"
                ReferencedContainer = "container:MetalComputeBasic.xcodeproj">
             </BuildableReference>
@@ -46,7 +46,7 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "5FFAD4CF21C8647E00384F46"
-            BuildableName = "MetalComputeBasic"
+            BuildableName = "libMetalComputeBasic"
             BlueprintName = "MetalComputeBasic"
             ReferencedContainer = "container:MetalComputeBasic.xcodeproj">
          </BuildableReference>
@@ -63,7 +63,7 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "5FFAD4CF21C8647E00384F46"
-            BuildableName = "MetalComputeBasic"
+            BuildableName = "libMetalComputeBasic"
             BlueprintName = "MetalComputeBasic"
             ReferencedContainer = "container:MetalComputeBasic.xcodeproj">
          </BuildableReference>
