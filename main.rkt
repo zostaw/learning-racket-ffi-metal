@@ -3,8 +3,7 @@
 (require ffi/unsafe
          ffi/unsafe/define
          ffi/cvector
-         ffi/unsafe/cvector
-         racket/flonum)
+         ffi/unsafe/cvector)
 
 
 (define-ffi-definer define-metal
@@ -28,7 +27,17 @@
 (define-cstruct _metal_vector
                 ([buffer_ptr    _pointer]
                  [buffer_len    _pointer]
-                 [data_type     _metal_data_type))
+                 [data_type     _metal_data_type]))
+
+
+(define-cstruct _c_vector
+                ([buffer_ptr    _pointer]
+                 [buffer_len    _pointer]
+                 [data_type     _metal_data_type]))
+
+
+
+
 
 (define-metal create-metal-device
   (_fun _string -> _pointer)
@@ -41,16 +50,6 @@
   #:c-id createMetalLibrary)
 
 
-
-(define-metal create-metal-adder
-  (_fun _string -> _pointer)
-  #:c-id createMetalAdder)
-
-
-
-(define-metal perform-computation
-  (_fun _pointer -> _void)
-  #:c-id performComputation)
 
 
 
@@ -70,18 +69,7 @@
         mvector-result)))
 
 
-(define-metal perform-computation-with-float-inputs
-  (_fun _pointer
-        ;; [vecA : (_vector i _float)]
-        ;; [_int = (vector-length vecA)]
-        [vecA : _cvector]
-        [_int = (cvector-length vecA)]
-        ;; [vecB : (_vector i _float)]
-        ;; [_int = (vector-length vecB)]
-        [vecB : _cvector]
-        [_int = (cvector-length vecB)]
-        -> _void)
-  #:c-id performComputationWithFloatInputs)
+
 
 
 
@@ -92,31 +80,16 @@
         -> _pointer)
   #:c-id metalVector)
 
-(define (mvector-definer mdevice)
-  (lambda (vector) (vector->mvector mdevice vector)))
-
-
-
-(define-metal int32-vector->mvector
-  (_fun _pointer
-        [vec : (_vector i _int32)]
-        [_int = (vector-length vec)]
-        -> _pointer)
-  #:c-id metalInt32Vector)
-
-(define (int32-mvector-definer mdevice)
-  (lambda (vector) (int32-vector->mvector mdevice vector)))
-
-
-
 
 (define-metal cvector->mvector
   (_fun _pointer
-        ;_cvector
         [vec : _cvector]
         [_int = (cvector-length vec)]
         -> _pointer)
   #:c-id metalVector)
+
+
+
 
 
 (define _float_ptr
@@ -130,6 +103,7 @@
 
 
 
+
 (define-metal make-mvector-orig
   (_fun _pointer ; device
         _int32 ; type-id
@@ -137,7 +111,7 @@
         -> _pointer)
   #:c-id makeMetalVector)
 
-(define (make-mutable-mvector mdevice type size)
+(define (make-mvector mdevice type size)
   (let ([type-id (match type
                 ['float 0]
                 ['int32 0]
@@ -147,18 +121,11 @@
 
 
 
-;; OO API
-(define adder (create-metal-adder  metallib-path))
-;; (define dataA (make-vector (expt 2 24) 1.0))
-(define dataA (list->cvector 
-                (make-list (expt 2 24) 1.0)
-                _float))
-;; (define dataB (make-vector (expt 2 24) 2.0))
-(define dataB (list->cvector 
-                (make-list (expt 2 24) 2.0) 
-                _float))
 
-(perform-computation-with-float-inputs adder dataA dataB)
+
+
+
+
 
 
 
@@ -180,7 +147,7 @@
                     _float))
 (define mvector-B (cvector->mvector mdevice cvector-B))
 
-(define mvector-result (make-mutable-mvector mdevice 'float vector-size))
+(define mvector-result (make-mvector mdevice 'float vector-size))
 
 
 (compute-add mdevice mlibrary mvector-A mvector-B mvector-result)
