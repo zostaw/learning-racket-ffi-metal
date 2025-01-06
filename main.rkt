@@ -14,6 +14,10 @@
                  "Build/Products/Debug/default.metallib"))
 
 
+(define _float_ptr
+  (_cpointer _float))
+
+
 (define _metal_data_type
   (_enum '(METAL_FLOAT = 0
            METAL_INT32 = 1)
@@ -62,70 +66,36 @@
 
 
 
-(define-metal compute-add-orig-obsolete
+(define-metal compute-add-orig
   (_fun _pointer
         _pointer
         _pointer
         _pointer
-        _pointer
-        -> _bool)
-  #:c-id computeAddObsolete)
+        -> _metal_vector)
+  #:c-id computeAdd)
 
-(define (compute-add-obsolete mdevice mlibrary mvector-A mvector-B mvector-result)
-  (let ([result (compute-add-orig-obsolete mdevice mlibrary mvector-A mvector-B mvector-result)])
+(define (compute-add mdevice mlibrary mvector-A mvector-B)
+  (let ([result (compute-add-orig mdevice mlibrary mvector-A mvector-B)])
     (if (not result)
         (error "ComputeAdd returned error.")
-        mvector-result)))
+        result)))
 
 
 
 
 
 
-(define-metal vector->mvector
-  (_fun _pointer
-        [vec : (_vector i _float)]
-        [_int = (vector-length vec)]
-        -> _pointer)
-  #:c-id metalVectorObsolete)
-
-
-(define-metal cvector->mvector
-  (_fun _pointer
-        [vec : _cvector]
-        [_int = (cvector-length vec)]
-        -> _pointer)
-  #:c-id metalVectorObsolete)
-
-
-
-
-
-(define _float_ptr
-  (_cpointer _float))
-
-(define-metal mvector->cvector
-  (_fun _pointer
+(define-metal mvector->cvector-orig
+  (_fun _metal_vector
         -> _float_ptr)
   #:c-id getCVector)
 
+(define (mvector->cvector vec)
+  (values (mvector->cvector-orig vec) (metal_vector->buffer_len vec)))
 
 
 
 
-(define-metal make-mvector-orig
-  (_fun _pointer ; device
-        _int32 ; type-id
-        _int32 ; size
-        -> _pointer)
-  #:c-id makeMetalVectorObsolete)
-
-(define (make-mvector mdevice type size)
-  (let ([type-id (match type
-                ['float 0]
-                ['int32 0]
-                [_ (error (format "Type ~a not supported, choose one of: 'float 'int32\n" type))])])
-    (make-mvector-orig mdevice type-id size)))
 
 
 
@@ -160,21 +130,31 @@
 
 (define vector-size (expt 2 24))
 
-(define cvector-A (list->cvector 
-                    (make-list vector-size 1.0)
-                    _float))
-(define mvector-A (cvector->mvector mdevice cvector-A))
+;; (define cvector-A (list->cvector 
+;;                     (make-list vector-size 1.0)
+;;                     _float))
+;; (define mvector-A (cvector->mvector mdevice cvector-A))
 
-(define cvector-B (list->cvector 
-                    (make-list vector-size 2.0) 
-                    _float))
-(define mvector-B (cvector->mvector mdevice cvector-B))
+;; (define cvector-B (list->cvector 
+;;                     (make-list vector-size 2.0) 
+;;                     _float))
+;; (define mvector-B (cvector->mvector mdevice cvector-B))
 
-(define mvector-result (make-mvector mdevice 'float vector-size))
+;; (define mvector-result (make-mvector mdevice 'float vector-size))
 
 
-(compute-add-obsolete mdevice mlibrary mvector-A mvector-B mvector-result)
+;; (compute-add-obsolete mdevice mlibrary mvector-A mvector-B mvector-result)
 
+;; (define results (mvector->cvector mvector-result))
+
+;; (let ([n 10])
+;;   (displayln
+;;  (format "First ~a thingies:  ~a"
+;;          n
+;;          (map (λ (i)
+;;                 (ptr-ref results _float i))
+;;               (range n))
+;;          )))
 
 
 
@@ -183,30 +163,30 @@
 (define mvector-C (create-mvector mdevice (list->cvector (list 1.0 2.0 3.0 4.0) _float) 
                                   'METAL_FLOAT 
                                   4))
-(metal_vector->device mvector-C)
-
 (define mvector-D (create-mvector mdevice (list->cvector (list 1.0 2.0 3.0 4.0) _float) 
                                   'METAL_FLOAT 
                                   4))
-(metal_vector->device mvector-D)
+
+;; (define mvector-r (create-mvector mdevice (list->cvector (list 0.0 0.0 0.0 0.0) _float) 
+;;                                   'METAL_FLOAT 
+;;                                   4))
 
 
+(define mvector-r (compute-add mdevice mlibrary mvector-C mvector-D))
 
 
+(define-values (cvector-r r-len) (mvector->cvector mvector-r))
 
-
-
-
-(define results (mvector->cvector mvector-result))
-
-(let ([n 10])
+(let ([n r-len])
   (displayln
  (format "First ~a thingies:  ~a"
          n
          (map (λ (i)
-                (ptr-ref results _float i))
+                (ptr-ref cvector-r _float i))
               (range n))
          )))
+
+
 
 ;; (perform-computation-with-inputs adder dataA dataB)
 

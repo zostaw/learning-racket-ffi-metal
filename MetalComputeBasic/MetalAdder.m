@@ -14,7 +14,6 @@ const unsigned int bufferSize = arrayLength * sizeof(float);
 
 
 
-
 enum metal_data_type {
     METAL_FLOAT,
     METAL_INT32,
@@ -55,16 +54,19 @@ void encodeAddCommand(id<MTLComputeCommandEncoder> computeEncoder,
               threadsPerThreadgroup:threadgroupSize];
 }
 
+
+
+
 __attribute__((visibility("default")))
-bool computeAddObsolete(void* device, void*library, void* bufferA, void* bufferB, void* bufferResult) {
+bool computeAddWithAllocatedResultBuffer(void* device, void*library, struct metal_vector* bufferA, struct metal_vector* bufferB, struct metal_vector* bufferResult) {
 
     NSError* error = nil;
 
     id<MTLDevice>  _mDevice       = (__bridge id<MTLDevice>)device;
     id<MTLLibrary> _mLibrary      = (__bridge id<MTLLibrary>)library;
-    id<MTLBuffer>  _mBufferA      = (__bridge id<MTLBuffer>)bufferA;
-    id<MTLBuffer>  _mBufferB      = (__bridge id<MTLBuffer>)bufferB;
-    id<MTLBuffer>  _mBufferResult = (__bridge id<MTLBuffer>)bufferResult;
+    id<MTLBuffer>  _mBufferA      = bufferA->buffer_ptr;
+    id<MTLBuffer>  _mBufferB      = bufferB->buffer_ptr;
+    id<MTLBuffer>  _mBufferResult = bufferResult->buffer_ptr;
     // id<MTLBuffer>  _mBufferResult = [_mDevice newBufferWithLength:bufferSize options:MTLResourceStorageModeShared];
 
     // Validate casted objects
@@ -136,6 +138,107 @@ bool computeAddObsolete(void* device, void*library, void* bufferA, void* bufferB
 
 
 
+__attribute__((visibility("default")))
+struct metal_vector computeAdd(id<MTLDevice> _mDevice, id<MTLLibrary> _mLibrary, struct metal_vector* bufferA, struct metal_vector* bufferB) {
+
+    NSError* error = nil;
+
+    struct metal_vector* bufferResult = malloc(sizeof(struct metal_vector));
+
+    if (bufferA->buffer_len != bufferB->buffer_len) {
+        @throw [NSException exceptionWithName:@"MyException" reason:@"Vectors are different sizes." userInfo:nil];
+    }
+
+    if (bufferA->data_type != bufferB->data_type) {
+        @throw [NSException exceptionWithName:@"MyException" reason:@"Vectors have different types." userInfo:nil];
+    }
+
+    if (bufferA->buffer_ptr == NULL) {
+        @throw [NSException exceptionWithName:@"MyException" reason:@"First vector is NULL." userInfo:nil];
+    }
+
+    if (bufferB->buffer_ptr == NULL) {
+        @throw [NSException exceptionWithName:@"MyException" reason:@"First vector is NULL." userInfo:nil];
+    }
+
+    size_t bufferSize = bufferA->buffer_len;
+    enum metal_data_type data_type = bufferA->data_type;
+
+    // Allocate buffer
+    id<MTLBuffer>  _mBufferA      = bufferA->buffer_ptr;
+    id<MTLBuffer>  _mBufferB      = bufferB->buffer_ptr;
+    id<MTLBuffer>  _mBufferResult = [_mDevice newBufferWithLength:bufferSize options:MTLResourceStorageModeShared];
+
+    // Validate casted objects
+    if (!_mDevice || !_mLibrary || !_mBufferA || !_mBufferB || !_mBufferResult) {
+        NSLog(@"Error: One or more Metal objects are invalid.");
+    }
+
+
+
+    
+    id<MTLFunction> addFunction = [_mLibrary newFunctionWithName:@"add_arrays"];
+    if (addFunction == nil)
+    {
+        NSLog(@"Failed to find the adder function.");
+    }
+
+    // Create a compute pipeline state object.
+    id<MTLComputePipelineState> _mAddFunctionPSO = [_mDevice newComputePipelineStateWithFunction: addFunction error:&error];
+    if (_mAddFunctionPSO == nil)
+    {
+        //  If the Metal API validation is enabled, you can find out more information about what
+        //  went wrong.  (Metal API validation is enabled by default when a debug build is run
+        //  from Xcode)
+        NSLog(@"Failed to created pipeline state object, error %@.", error);
+    }
+
+    id<MTLCommandQueue> _mCommandQueue = [_mDevice newCommandQueue];
+    if (_mCommandQueue == nil)
+    {
+        NSLog(@"Failed to find the command queue.");
+    }
+
+    NSLog(@"Sending:");
+    // Create a command buffer to hold commands.
+    id<MTLCommandBuffer> _mCommandBuffer = [_mCommandQueue commandBuffer];
+    assert(_mCommandBuffer != nil);
+
+    // Start a compute pass.
+    id<MTLComputeCommandEncoder> _mComputeEncoder = [_mCommandBuffer computeCommandEncoder];
+    assert(_mComputeEncoder != nil);
+
+    encodeAddCommand(_mComputeEncoder, _mAddFunctionPSO, _mBufferA, _mBufferB, _mBufferResult);
+
+    // End the compute pass.
+    [_mComputeEncoder endEncoding];
+
+    // Execute the command.
+    [_mCommandBuffer commit];
+
+    // Normally, you want to do other work in your app while the GPU is running,
+    // but in this example, the code simply blocks until the calculation is complete.
+    [_mCommandBuffer waitUntilCompleted];
+
+
+    float *result = _mBufferResult.contents;
+
+    int numResultsToPrint = 10;
+    NSLog(@"Results:");
+    for (int i = 0; i<numResultsToPrint; i++) {
+        NSLog(@"%f", result[i]);
+    }
+
+    bufferResult->buffer_ptr = _mBufferResult;
+    bufferResult->buffer_len = bufferSize;
+    bufferResult->data_type = data_type;
+    bufferResult->device = _mDevice;
+
+    return *bufferResult;
+}
+
+
+
 
 
 
@@ -178,37 +281,12 @@ void* createMetalLibrary(void* device, const char *metallib_full_path) {
 
 
 __attribute__((visibility("default")))
-void* makeMetalVectorObsolete(void* device, size_t data_type, size_t numElements) {
-    size_t bufferSize;
-    switch (data_type) {
-        case 0:
-            bufferSize = numElements * sizeof(float);
-        case 1:
-            bufferSize = numElements * sizeof(int);
-            break;
-        default:
-            printf("Wrong type, choose one from:\n - 0 (for float)\n- 1 (for int32)");
-            return NULL;
-    }
-
-    id<MTLDevice> mDevice = (__bridge id<MTLDevice>)device;
-
-    // Allocate buffer
-    id<MTLBuffer> mBufferA = [mDevice newBufferWithLength:bufferSize options:MTLResourceStorageModeShared];
-
-    if (!mBufferA) {
-        return NULL;
-    }
-    
-    return (__bridge_retained void*)mBufferA;
-}
-
-
-__attribute__((visibility("default")))
-struct metal_vector* createMetalVector(id<MTLDevice> mDevice, float* dataA, size_t numElements, enum metal_data_type data_type) {
+struct metal_vector createMetalVector(id<MTLDevice> mDevice, float* dataA, size_t numElements, enum metal_data_type data_type) {
 
     struct metal_vector* vec = malloc(sizeof(struct metal_vector));
-    if (!vec) return NULL;
+    if (!vec) {
+        @throw [NSException exceptionWithName:@"MyException" reason:@"Vector could not be allocated." userInfo:nil];
+    }
 
     
     size_t bufferSize = 0;
@@ -220,18 +298,16 @@ struct metal_vector* createMetalVector(id<MTLDevice> mDevice, float* dataA, size
             bufferSize = numElements * sizeof(int);
             break;
         default:
-            printf("Wrong type, choose one from:\n - METAL_FLOAT\n- METAL_INT32\n");
             free(vec);
-            return NULL;
+            @throw [NSException exceptionWithName:@"MyException" reason:@"Wrong type, choose one from:\n - METAL_FLOAT\n- METAL_INT32\n" userInfo:nil];
     }
-    // id<MTLDevice> mDevice = (__bridge_retained id<MTLDevice>)device;
 
     // Allocate buffer
     id<MTLBuffer> mBufferA = [mDevice newBufferWithLength:bufferSize options:MTLResourceStorageModeShared];
 
     if (!mBufferA) {
         free(vec);
-        return NULL;
+        @throw [NSException exceptionWithName:@"MyException" reason:@"Vector's MTLBuffer could not be allocated." userInfo:nil];
     }
     
     // Copy data into the Metal buffer
@@ -244,7 +320,7 @@ struct metal_vector* createMetalVector(id<MTLDevice> mDevice, float* dataA, size
     vec->data_type = data_type;
     vec->device = mDevice;
 
-    return vec;
+    return *vec;
 }
 
 void destroyMetalVector(struct metal_vector* vec) {
@@ -254,54 +330,12 @@ void destroyMetalVector(struct metal_vector* vec) {
 }
 
 
-__attribute__((visibility("default")))
-void* metalVectorObsolete(void* device, float* dataA, size_t numElements) {
-
-    size_t bufferSize = numElements * sizeof(float);
-    id<MTLDevice> mDevice = (__bridge id<MTLDevice>)device;
-
-    // Allocate buffer
-    id<MTLBuffer> mBufferA = [mDevice newBufferWithLength:bufferSize options:MTLResourceStorageModeShared];
-
-    if (!mBufferA) {
-        return NULL;
-    }
-    
-    // Copy data into the Metal buffer
-    void* bufferContentsA = [mBufferA contents];
-    memcpy(bufferContentsA, dataA, bufferSize);
-
-    return (__bridge_retained void*)mBufferA;
-}
-
 
 
 __attribute__((visibility("default")))
-void* metalInt32Vector(void* device, int* dataA, size_t numElements) {
+float* getCVector(struct metal_vector vec) {
 
-    size_t bufferSize = numElements * sizeof(int);
-    id<MTLDevice> mDevice = (__bridge id<MTLDevice>)device;
-
-    // Allocate buffer
-    id<MTLBuffer> mBufferA = [mDevice newBufferWithLength:bufferSize options:MTLResourceStorageModeShared];
-
-    if (!mBufferA) {
-        return NULL;
-    }
-    
-    // Copy data into the Metal buffer
-    void* bufferContentsA = [mBufferA contents];
-    memcpy(bufferContentsA, dataA, bufferSize);
-
-    return (__bridge_retained void*)mBufferA;
-}
-
-
-__attribute__((visibility("default")))
-float* getCVector(void* buffer) {
-
-
-    id<MTLBuffer>  _mBuffer  = (__bridge id<MTLBuffer>)buffer;
+    id<MTLBuffer>  _mBuffer  = vec.buffer_ptr;
 
     if (!_mBuffer) {
         NSLog(@"Error: One or more Metal objects are invalid.");
