@@ -125,13 +125,13 @@ bool computeAddWithAllocatedResultBuffer(void* device, void*library, struct meta
     [_mCommandBuffer waitUntilCompleted];
 
 
-    float *result = _mBufferResult.contents;
+    // float *result = _mBufferResult.contents;
 
-    int numResultsToPrint = 10;
-    NSLog(@"Results:");
-    for (int i = 0; i<numResultsToPrint; i++) {
-        NSLog(@"%f", result[i]);
-    }
+    // int numResultsToPrint = 10;
+    // NSLog(@"Results:");
+    // for (int i = 0; i<numResultsToPrint; i++) {
+    //     NSLog(@"%f", result[i]);
+    // }
 
     return true;
 }
@@ -221,13 +221,13 @@ struct metal_vector computeAdd(id<MTLDevice> _mDevice, id<MTLLibrary> _mLibrary,
     [_mCommandBuffer waitUntilCompleted];
 
 
-    float *result = _mBufferResult.contents;
+    // float *result = _mBufferResult.contents;
 
-    int numResultsToPrint = 10;
-    NSLog(@"Results:");
-    for (int i = 0; i<numResultsToPrint; i++) {
-        NSLog(@"%f", result[i]);
-    }
+    // int numResultsToPrint = 10;
+    // NSLog(@"Results:");
+    // for (int i = 0; i<numResultsToPrint; i++) {
+    //     NSLog(@"%f", result[i]);
+    // }
 
     bufferResult->buffer_ptr = _mBufferResult;
     bufferResult->buffer_len = bufferSize;
