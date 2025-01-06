@@ -179,13 +179,13 @@ const unsigned int bufferSize = arrayLength * sizeof(float);
 
 
 enum metal_data_type {
-    FLOAT,
-    INT32,
+    METAL_FLOAT,
+    METAL_INT32,
 };
 
 struct metal_vector {
               void* buffer_ptr;
-              int buffer_len;
+              size_t buffer_len;
               enum metal_data_type data_type;
 };
 
@@ -446,9 +446,54 @@ void* makeMetalVector(void* device, size_t data_type, size_t numElements) {
 }
 
 
+__attribute__((visibility("default")))
+struct metal_vector* createMetalVector(void* device, float* dataA, size_t numElements, enum metal_data_type data_type) {
+
+    struct metal_vector* vec = malloc(sizeof(struct metal_vector));
+
+    
+    size_t bufferSize;
+    switch (data_type) {
+        case METAL_FLOAT:
+            bufferSize = numElements * sizeof(float);
+        case METAL_INT32:
+            bufferSize = numElements * sizeof(int);
+            break;
+        default:
+            printf("Wrong type, choose one from:\n - METAL_FLOAT\n- METAL_INT32\n");
+            return NULL;
+    }
+    id<MTLDevice> mDevice = (__bridge id<MTLDevice>)device;
+
+    // Allocate buffer
+    id<MTLBuffer> mBufferA = [mDevice newBufferWithLength:bufferSize options:MTLResourceStorageModeShared];
+
+    if (!mBufferA) {
+        free(vec);
+        return NULL;
+    }
+    
+    // Copy data into the Metal buffer
+    void* bufferContentsA = [mBufferA contents];
+    memcpy(bufferContentsA, dataA, bufferSize);
+
+    vec->buffer_ptr = (__bridge_retained void*)mBufferA;
+    vec->buffer_len = numElements;
+    vec->data_type = data_type;
+
+    return vec;
+}
+
+void destroyMetalVector(struct metal_vector* vec) {
+    if (vec) {
+        vec->buffer_ptr = nil;
+        free(vec);
+    }
+}
+
 
 __attribute__((visibility("default")))
-void* metalVector(void* device, float* dataA, size_t numElements) {
+void* metalVectorObsolete(void* device, float* dataA, size_t numElements) {
 
     size_t bufferSize = numElements * sizeof(float);
     id<MTLDevice> mDevice = (__bridge id<MTLDevice>)device;

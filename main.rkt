@@ -15,20 +15,26 @@
 
 
 (define _metal_data_type
-  (_enum '(FLOAT = 0
-           INT32 = 1)
+  (_enum '(METAL_FLOAT = 0
+           METAL_INT32 = 1)
          _uint32
          #:unknown (lambda (x)
-                     (cond [(eq? x 'FLOAT)  0]
-                           [(eq? x 'INT32) 1]
+                     (cond [(eq? x 'METAL_FLOAT)  0]
+                           [(eq? x 'METAL_INT32) 1]
                            [else (error 'metal_data_type "unknown enum value")]))))
 
 
 (define-cstruct _metal_vector
                 ([buffer_ptr    _pointer]
-                 [buffer_len    _pointer]
+                 [buffer_len    _size]
                  [data_type     _metal_data_type]))
 
+(define (metal_vector->buffer_ptr metal-vector)
+  (ptr-ref metal-vector _pointer 0))
+(define (metal_vector->buffer_len metal-vector)
+  (ptr-ref metal-vector _size 1))
+(define (metal_vector->data_type metal-vector)
+  (ptr-ref metal-vector _metal_data_type 2))
 
 (define-cstruct _c_vector
                 ([buffer_ptr    _pointer]
@@ -78,7 +84,7 @@
         [vec : (_vector i _float)]
         [_int = (vector-length vec)]
         -> _pointer)
-  #:c-id metalVector)
+  #:c-id metalVectorObsolete)
 
 
 (define-metal cvector->mvector
@@ -86,7 +92,7 @@
         [vec : _cvector]
         [_int = (cvector-length vec)]
         -> _pointer)
-  #:c-id metalVector)
+  #:c-id metalVectorObsolete)
 
 
 
@@ -122,6 +128,14 @@
 
 
 
+(define-metal create-mvector
+  (_fun _pointer ; device
+        [vec : _cvector]
+        [_int = (cvector-length vec)]
+        _metal_data_type   ; type
+        _int32   ; length
+        -> _metal_vector)
+  #:c-id createMetalVector)
 
 
 
@@ -153,6 +167,18 @@
 (compute-add mdevice mlibrary mvector-A mvector-B mvector-result)
 
 (define results (mvector->cvector mvector-result))
+
+
+
+
+(define mvector-C (create-mvector mdevice (list->cvector (list 1.0 2.0 3.0 4.0) _float) 
+                                  'METAL_FLOAT 
+                                  4))
+
+;(ptr-ref mvector-C _metal_data_type 1)
+(println (metal_vector->data_type mvector-C))
+
+
 
 
 (let ([n 10])
