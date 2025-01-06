@@ -27,7 +27,8 @@
 (define-cstruct _metal_vector
                 ([buffer_ptr    _pointer]
                  [buffer_len    _size]
-                 [data_type     _metal_data_type]))
+                 [data_type     _metal_data_type]
+                 [device        _pointer]))
 
 (define (metal_vector->buffer_ptr metal-vector)
   (ptr-ref metal-vector _pointer 0))
@@ -35,6 +36,8 @@
   (ptr-ref metal-vector _size 1))
 (define (metal_vector->data_type metal-vector)
   (ptr-ref metal-vector _metal_data_type 2))
+(define (metal_vector->device metal-vector)
+  (ptr-ref metal-vector _pointer 3))
 
 (define-cstruct _c_vector
                 ([buffer_ptr    _pointer]
@@ -59,17 +62,17 @@
 
 
 
-(define-metal compute-add-orig
+(define-metal compute-add-orig-obsolete
   (_fun _pointer
         _pointer
         _pointer
         _pointer
         _pointer
         -> _bool)
-  #:c-id computeAdd)
+  #:c-id computeAddObsolete)
 
-(define (compute-add mdevice mlibrary mvector-A mvector-B mvector-result)
-  (let ([result (compute-add-orig mdevice mlibrary mvector-A mvector-B mvector-result)])
+(define (compute-add-obsolete mdevice mlibrary mvector-A mvector-B mvector-result)
+  (let ([result (compute-add-orig-obsolete mdevice mlibrary mvector-A mvector-B mvector-result)])
     (if (not result)
         (error "ComputeAdd returned error.")
         mvector-result)))
@@ -115,7 +118,7 @@
         _int32 ; type-id
         _int32 ; size
         -> _pointer)
-  #:c-id makeMetalVector)
+  #:c-id makeMetalVectorObsolete)
 
 (define (make-mvector mdevice type size)
   (let ([type-id (match type
@@ -136,6 +139,12 @@
         _int32   ; length
         -> _metal_vector)
   #:c-id createMetalVector)
+
+(define-metal destroy-mvector
+#| DON'T USE IT. It doesn't really work |#
+              (_fun _metal_vector
+                    -> _void)
+  #:c-id destroyMetalVector)
 
 
 
@@ -164,9 +173,9 @@
 (define mvector-result (make-mvector mdevice 'float vector-size))
 
 
-(compute-add mdevice mlibrary mvector-A mvector-B mvector-result)
+(compute-add-obsolete mdevice mlibrary mvector-A mvector-B mvector-result)
 
-(define results (mvector->cvector mvector-result))
+
 
 
 
@@ -174,12 +183,21 @@
 (define mvector-C (create-mvector mdevice (list->cvector (list 1.0 2.0 3.0 4.0) _float) 
                                   'METAL_FLOAT 
                                   4))
+(metal_vector->device mvector-C)
 
-;(ptr-ref mvector-C _metal_data_type 1)
-(println (metal_vector->data_type mvector-C))
+(define mvector-D (create-mvector mdevice (list->cvector (list 1.0 2.0 3.0 4.0) _float) 
+                                  'METAL_FLOAT 
+                                  4))
+(metal_vector->device mvector-D)
 
 
 
+
+
+
+
+
+(define results (mvector->cvector mvector-result))
 
 (let ([n 10])
   (displayln
