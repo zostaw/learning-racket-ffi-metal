@@ -89,8 +89,8 @@ const unsigned int bufferSize = arrayLength * sizeof(float);
 - (void) prepareData
 {
     // Allocate three buffers to hold our initial data and the result.
-    _mBufferA = [_mDevice newBufferWithLength:bufferSize options:MTLResourceStorageModeShared];
-    _mBufferB = [_mDevice newBufferWithLength:bufferSize options:MTLResourceStorageModeShared];
+    _mBufferA =      [_mDevice newBufferWithLength:bufferSize options:MTLResourceStorageModeShared];
+    _mBufferB =      [_mDevice newBufferWithLength:bufferSize options:MTLResourceStorageModeShared];
     _mBufferResult = [_mDevice newBufferWithLength:bufferSize options:MTLResourceStorageModeShared];
 
     
@@ -239,6 +239,15 @@ void* createMetalAdder(const char *metallib_full_path) {
 }
 
 
+__attribute__((visibility(("default"))))
+void* createMetalDevice(const char *metallib_full_path) {
+    printf("%s\n", metallib_full_path);
+
+    id<MTLDevice> device = MTLCreateSystemDefaultDevice();
+
+    return (__bridge_retained void*)device;
+}
+
 
 // Expose the computation function for FFI
 __attribute__((visibility(("default"))))
@@ -249,12 +258,36 @@ void performComputation(void* adder) {
     NSLog(@"Execution finished");
 }
 
+
+
 __attribute__((visibility("default")))
 void performComputationWithInputs(void* adder, float* dataA, size_t numElements, float* dataB, size_t _numElementsB) {
     MetalAdder* metalAdder = (__bridge MetalAdder*)adder;
     [metalAdder prepareDataWithInputs:dataA dataB:dataB numElements:numElements];
     [metalAdder sendComputeCommand];
     NSLog(@"Execution finished");
+}
+
+
+
+__attribute__((visibility("default")))
+void* metalVector(void* device, float* dataA, size_t numElements) {
+
+    size_t bufferSize = numElements * sizeof(float);
+    id<MTLDevice> mDevice = (__bridge id<MTLDevice>)device;
+
+    // Allocate buffer
+    id<MTLBuffer> mBufferA = [mDevice newBufferWithLength:bufferSize options:MTLResourceStorageModeShared];
+
+    if (!mBufferA) {
+        return NULL;
+    }
+    
+    // Copy data into the Metal buffer
+    void* bufferContentsA = [mBufferA contents];
+    memcpy(bufferContentsA, dataA, bufferSize);
+
+    return (__bridge_retained void*)mBufferA;
 }
 
 @end
