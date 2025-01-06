@@ -64,6 +64,23 @@
 
 
 
+;computeAddWithAllocatedResultBuffer
+
+
+(define-metal compute-add-with-allocated-result-orig
+  (_fun _pointer
+        _pointer
+        _pointer
+        _pointer
+        _pointer
+        -> _bool)
+  #:c-id computeAddWithAllocatedResultBuffer)
+
+(define (compute-add-with-allocated-result mdevice mlibrary mvector-A mvector-B mvector-Result)
+  (let ([result (compute-add-with-allocated-result-orig mdevice mlibrary mvector-A mvector-B mvector-Result)])
+    (if (not result)
+        (error "ComputeAdd returned error.")
+        result)))
 
 
 (define-metal compute-add-orig
