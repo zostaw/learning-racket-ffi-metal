@@ -64,7 +64,6 @@
 
 
 
-;computeAddWithAllocatedResultBuffer
 
 
 (define-metal compute-add-with-allocated-result-orig
@@ -147,34 +146,37 @@
 
 (define vector-size (expt 2 24))
 
-;; (define cvector-A (list->cvector 
-;;                     (make-list vector-size 1.0)
-;;                     _float))
-;; (define mvector-A (cvector->mvector mdevice cvector-A))
+(define mvector-A (create-mvector mdevice (list->cvector (list 1.0 2.0 3.0 4.0) _float) 
+                                  'METAL_FLOAT 
+                                  4))
+(define mvector-B (create-mvector mdevice (list->cvector (list 1.0 2.0 3.0 4.0) _float) 
+                                  'METAL_FLOAT 
+                                  4))
 
-;; (define cvector-B (list->cvector 
-;;                     (make-list vector-size 2.0) 
-;;                     _float))
-;; (define mvector-B (cvector->mvector mdevice cvector-B))
-
-;; (define mvector-result (make-mvector mdevice 'float vector-size))
-
-
-;; (compute-add-obsolete mdevice mlibrary mvector-A mvector-B mvector-result)
-
-;; (define results (mvector->cvector mvector-result))
-
-;; (let ([n 10])
-;;   (displayln
-;;  (format "First ~a thingies:  ~a"
-;;          n
-;;          (map (λ (i)
-;;                 (ptr-ref results _float i))
-;;               (range n))
-;;          )))
+(define mvector-r1 (create-mvector mdevice (list->cvector (list 0.0 0.0 0.0 0.0) _float) 
+                                  'METAL_FLOAT 
+                                  4))
 
 
 
+(void (compute-add-with-allocated-result mdevice mlibrary mvector-A mvector-B mvector-r1))
+
+(define-values (cvector-r1 len-r1) (mvector->cvector mvector-r1))
+
+(let ([n len-r1])
+  (displayln
+ (format "First ~a thingies:  ~a"
+         n
+         (map (λ (i)
+                (ptr-ref cvector-r1 _float i))
+              (range n))
+         )))
+
+
+
+
+
+;; Without prealocation
 
 
 (define mvector-C (create-mvector mdevice (list->cvector (list 1.0 2.0 3.0 4.0) _float) 
@@ -184,30 +186,19 @@
                                   'METAL_FLOAT 
                                   4))
 
-;; (define mvector-r (create-mvector mdevice (list->cvector (list 0.0 0.0 0.0 0.0) _float) 
-;;                                   'METAL_FLOAT 
-;;                                   4))
+
+(define mvector-r2 (compute-add mdevice mlibrary mvector-C mvector-D))
 
 
-(define mvector-r (compute-add mdevice mlibrary mvector-C mvector-D))
+(define-values (cvector-r2 len-r2) (mvector->cvector mvector-r2))
 
-
-(define-values (cvector-r r-len) (mvector->cvector mvector-r))
-
-(let ([n r-len])
+(let ([n len-r2])
   (displayln
  (format "First ~a thingies:  ~a"
          n
          (map (λ (i)
-                (ptr-ref cvector-r _float i))
+                (ptr-ref cvector-r2 _float i))
               (range n))
          )))
 
 
-
-;; (perform-computation-with-inputs adder dataA dataB)
-
-(struct Tensor (weights bias forward)
-  #:transparent)
-
-;(define tensor (Tensor weights bias (λ (X) (plus (times weights X) bias))))
