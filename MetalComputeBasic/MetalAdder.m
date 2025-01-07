@@ -6,6 +6,10 @@ A class to manage all of the Metal objects this app creates.
 */
 
 #import "MetalAdder.h"
+#include <stddef.h>
+#include <stdio.h>
+
+
 
 
 struct metal_config {
@@ -13,18 +17,25 @@ struct metal_config {
               id<MTLLibrary> library;
 };
 
-enum metal_data_type {
-    METAL_FLOAT,
-    METAL_INT32,
-};
+typedef enum {
+    METAL_FLOAT = 0,
+    METAL_INT32 = 1,
+} metal_data_type;
 
 struct metal_vector {
               id<MTLBuffer> data_ptr;
-              size_t data_len;
-              enum metal_data_type data_type;
+              size_t data_len; // this one is doubled actually, because MTLBuffer is pointer itself
+              metal_data_type data_type;
               struct metal_config metal_config;
 };
 
+
+void print_offsets() {
+    printf("Offset of data_ptr: %zu\n", offsetof(struct metal_vector, data_ptr));
+    printf("Offset of data_len: %zu\n", offsetof(struct metal_vector, data_len));
+    printf("Offset of data_type: %zu\n", offsetof(struct metal_vector, data_type));
+    printf("Offset of metal_config: %zu\n", offsetof(struct metal_vector, metal_config));
+}
 
 
 void encodeAddCommand(id<MTLComputeCommandEncoder> computeEncoder,
@@ -182,7 +193,7 @@ struct metal_vector computeAdd(struct metal_config* metal_config, struct metal_v
     }
 
     size_t bufferSize = bufferA->data_len;
-    enum metal_data_type data_type = bufferA->data_type;
+    metal_data_type data_type = bufferA->data_type;
 
     // Allocate buffer
     id<MTLBuffer>  _mBufferA      = bufferA->data_ptr;
@@ -324,7 +335,7 @@ struct metal_config initializeMetal(const char *metallib_full_path) {
 
 
 __attribute__((visibility("default")))
-struct metal_vector createMetalVector(struct metal_config* metal_config, float* dataA, size_t numElements, enum metal_data_type data_type) {
+struct metal_vector createMetalVector(struct metal_config* metal_config, float* dataA, size_t numElements, metal_data_type data_type) {
 
     id<MTLDevice>  mDevice = metal_config->device;
     struct metal_vector* vec = malloc(sizeof(struct metal_vector));
@@ -332,6 +343,7 @@ struct metal_vector createMetalVector(struct metal_config* metal_config, float* 
     if (!vec) {
         @throw [NSException exceptionWithName:@"MyException" reason:@"Vector could not be allocated." userInfo:nil];
     }
+
 
     size_t bufferSize = 0;
     switch (data_type) {
@@ -376,7 +388,7 @@ void destroyMetalVector(struct metal_vector* vec) {
 
 
 __attribute__((visibility("default")))
-float* getCVector(struct metal_vector vec) {
+float* getCFloatVector(struct metal_vector vec) {
 
     id<MTLBuffer>  _mBuffer  = vec.data_ptr;
 
@@ -384,7 +396,29 @@ float* getCVector(struct metal_vector vec) {
         NSLog(@"Error: One or more Metal objects are invalid.");
     }
 
+    if (vec.data_type != METAL_FLOAT) {
+        @throw [NSException exceptionWithName:@"MyException" reason:@"Called getCFloatVector on metal_vector that is not METAL_FLOAT type." userInfo:nil];
+    }
+
     float *result = _mBuffer.contents;
+
+    return result;
+}
+
+__attribute__((visibility("default")))
+int* getCInt32Vector(struct metal_vector vec) {
+
+    id<MTLBuffer> _mBuffer  = vec.data_ptr;
+
+    if (!_mBuffer) {
+        NSLog(@"Error: One or more Metal objects are invalid.");
+    }
+
+    if (vec.data_type != METAL_INT32) {
+        @throw [NSException exceptionWithName:@"MyException" reason:@"Called getCInt32Vector on metal_vector that is not METAL_INT32 type." userInfo:nil];
+    }
+
+    int *result = _mBuffer.contents;
 
     return result;
 }

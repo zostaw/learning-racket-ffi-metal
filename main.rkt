@@ -23,7 +23,7 @@
            METAL_INT32 = 1)
          _uint32
          #:unknown (lambda (x)
-                     (cond [(eq? x 'METAL_FLOAT)  0]
+                     (cond [(eq? x 'METAL_FLOAT) 0]
                            [(eq? x 'METAL_INT32) 1]
                            [else (error 'metal_data_type "unknown enum value")]))))
 
@@ -40,17 +40,19 @@
 (define-cstruct _metal_vector
                 ([data_ptr         _pointer]
                  [data_len         _size]
+                 [skip         _size]
                  [data_type        _metal_data_type]
-                 [metal_config     _metal_config]))
+                 [metal_config     _metal_config])
+                #:alignment 8)
 
 (define (metal_vector->data_ptr metal-vector)
   (ptr-ref metal-vector _pointer 0))
 (define (metal_vector->data_len metal-vector)
   (ptr-ref metal-vector _size 1))
 (define (metal_vector->data_type metal-vector)
-  (ptr-ref metal-vector _metal_data_type 2))
+  (ptr-ref metal-vector _metal_data_type 3))
 (define (metal_vector->device metal-vector)
-  (ptr-ref metal-vector _pointer 3))
+  (ptr-ref metal-vector _pointer 4))
 
 (define (mvector->ptr m-vector)
   (metal_vector->data_ptr m-vector))
@@ -112,14 +114,29 @@
 
 
 
-(define-metal mvector->cvector-ffi
+(define-metal float-mvector->cvector-ffi
   (_fun _metal_vector
         -> _pointer)
-  #:c-id getCVector)
+  #:c-id getCFloatVector)
+
+(define-metal int32-mvector->cvector-ffi
+  (_fun _metal_vector
+        -> _pointer)
+  #:c-id getCInt32Vector)
 
 (define (mvector->cvector m-vector)
-  (let ([vec-len (metal_vector->data_len m-vector)])
-        (make-cvector* (mvector->cvector-ffi m-vector) _float vec-len)))
+(begin 
+  (printf "here")
+  (printf "here matching datatype : ~a" (metal_vector->data_type m-vector))
+  (match (metal_vector->data_type m-vector)
+    ['METAL_FLOAT 
+
+     (let ([vec-len (metal_vector->data_len m-vector)])
+        (make-cvector* (float-mvector->cvector-ffi m-vector) _float vec-len))]
+    ['METAL_INT32
+     (let ([vec-len (metal_vector->data_len m-vector)])
+        (make-cvector* (int32-mvector->cvector-ffi m-vector) _int32 vec-len))]
+    [_ (error "Unexpected data-type in mvector->cvector definiiton")])))
 
 (define (mvector->list m-vector)
   (cvector->list (mvector->cvector m-vector)))
@@ -129,14 +146,14 @@
   (match data-type
     ['METAL_FLOAT 
      (create-mvector metal-config 
-                (list->cvector lst _float) 
-                                  'METAL_FLOAT 
-                                  (length lst))]
+                     (list->cvector lst _float) 
+                     data-type 
+                     (length lst))]
     ['METAL_INT32
      (create-mvector metal-config 
-                (list->cvector lst _int32) 
-                                  'METAL_INT32 
-                                  (length lst))]
+                     (list->cvector lst _int32) 
+                     data-type 
+                     (length lst))]
     [_ (error "Unexpected data-type in list->mvector definiiton")]))
 
 
@@ -172,11 +189,11 @@
 
 
 
-
 ;; With result buffer preallocation
-
 (define mvector-A (list->mvector metal-config 
                                  (list 1.0 2.0 3.0 4.0)))
+
+
 (define mvector-B (list->mvector metal-config 
                                  (list 1.0 2.0 3.0 4.0)))
 (define mvector-r1 (list->mvector metal-config 
