@@ -8,16 +8,14 @@ A class to manage all of the Metal objects this app creates.
 #import "MetalAdder.h"
 
 
-
-
 enum metal_data_type {
     METAL_FLOAT,
     METAL_INT32,
 };
 
 struct metal_vector {
-              id<MTLBuffer> buffer_ptr;
-              size_t buffer_len;
+              id<MTLBuffer> data_ptr;
+              size_t data_len;
               enum metal_data_type data_type;
               id<MTLDevice> device;
 };
@@ -68,10 +66,10 @@ bool computeAddWithAllocatedResultBuffer(void* device, void*library, struct meta
 
     id<MTLDevice>  _mDevice       = (__bridge id<MTLDevice>)device;
     id<MTLLibrary> _mLibrary      = (__bridge id<MTLLibrary>)library;
-    id<MTLBuffer>  _mBufferA      = bufferA->buffer_ptr;
-    id<MTLBuffer>  _mBufferB      = bufferB->buffer_ptr;
-    id<MTLBuffer>  _mBufferResult = bufferResult->buffer_ptr;
-    size_t bufferSize = bufferA->buffer_len;
+    id<MTLBuffer>  _mBufferA      = bufferA->data_ptr;
+    id<MTLBuffer>  _mBufferB      = bufferB->data_ptr;
+    id<MTLBuffer>  _mBufferResult = bufferResult->data_ptr;
+    size_t bufferSize = bufferA->data_len;
     // id<MTLBuffer>  _mBufferResult = [_mDevice newBufferWithLength:bufferSize options:MTLResourceStorageModeShared];
 
     // Validate casted objects
@@ -150,7 +148,7 @@ struct metal_vector computeAdd(id<MTLDevice> _mDevice, id<MTLLibrary> _mLibrary,
 
     struct metal_vector* bufferResult = malloc(sizeof(struct metal_vector));
 
-    if (bufferA->buffer_len != bufferB->buffer_len) {
+    if (bufferA->data_len != bufferB->data_len) {
         @throw [NSException exceptionWithName:@"MyException" reason:@"Vectors are different sizes." userInfo:nil];
     }
 
@@ -162,20 +160,20 @@ struct metal_vector computeAdd(id<MTLDevice> _mDevice, id<MTLLibrary> _mLibrary,
         @throw [NSException exceptionWithName:@"MyException" reason:@"Vectors seem to be allocated on different devices." userInfo:nil];
     }
 
-    if (bufferA->buffer_ptr == NULL) {
+    if (bufferA->data_ptr == NULL) {
         @throw [NSException exceptionWithName:@"MyException" reason:@"First vector is NULL." userInfo:nil];
     }
 
-    if (bufferB->buffer_ptr == NULL) {
+    if (bufferB->data_ptr == NULL) {
         @throw [NSException exceptionWithName:@"MyException" reason:@"Second vector is NULL." userInfo:nil];
     }
 
-    size_t bufferSize = bufferA->buffer_len;
+    size_t bufferSize = bufferA->data_len;
     enum metal_data_type data_type = bufferA->data_type;
 
     // Allocate buffer
-    id<MTLBuffer>  _mBufferA      = bufferA->buffer_ptr;
-    id<MTLBuffer>  _mBufferB      = bufferB->buffer_ptr;
+    id<MTLBuffer>  _mBufferA      = bufferA->data_ptr;
+    id<MTLBuffer>  _mBufferB      = bufferB->data_ptr;
     id<MTLBuffer>  _mBufferResult = [_mDevice newBufferWithLength:bufferSize options:MTLResourceStorageModeShared];
 
     // Validate casted objects
@@ -238,8 +236,8 @@ struct metal_vector computeAdd(id<MTLDevice> _mDevice, id<MTLLibrary> _mLibrary,
     //     NSLog(@"%f", result[i]);
     // }
 
-    bufferResult->buffer_ptr = _mBufferResult;
-    bufferResult->buffer_len = bufferSize;
+    bufferResult->data_ptr = _mBufferResult;
+    bufferResult->data_len = bufferSize;
     bufferResult->data_type = data_type;
     bufferResult->device = _mDevice;
 
@@ -323,9 +321,9 @@ struct metal_vector createMetalVector(id<MTLDevice> mDevice, float* dataA, size_
     void* bufferContentsA = [mBufferA contents];
     memcpy(bufferContentsA, dataA, bufferSize);
 
-    // vec->buffer_ptr = (__bridge_retained void*)mBufferA;
-    vec->buffer_ptr = mBufferA;
-    vec->buffer_len = numElements;
+    // vec->data_ptr = (__bridge_retained void*)mBufferA;
+    vec->data_ptr = mBufferA;
+    vec->data_len = numElements;
     vec->data_type = data_type;
     vec->device = mDevice;
 
@@ -346,7 +344,7 @@ struct c_vector getCVector(struct metal_vector vec) {
 
     struct c_vector* cvec = malloc(sizeof(struct c_vector));
 
-    id<MTLBuffer>  _mBuffer  = vec.buffer_ptr;
+    id<MTLBuffer>  _mBuffer  = vec.data_ptr;
 
     if (!_mBuffer) {
         NSLog(@"Error: One or more Metal objects are invalid.");
@@ -355,7 +353,7 @@ struct c_vector getCVector(struct metal_vector vec) {
     float *result = _mBuffer.contents;
 
     cvec->data_ptr = result;
-    cvec->data_len = vec.buffer_len;
+    cvec->data_len = vec.data_len;
     cvec->data_type = vec.data_type;
 
     return *cvec;

@@ -29,14 +29,14 @@
 
 
 (define-cstruct _metal_vector
-                ([buffer_ptr    _pointer]
-                 [buffer_len    _size]
+                ([data_ptr    _pointer]
+                 [data_len    _size]
                  [data_type     _metal_data_type]
                  [device        _pointer]))
 
-(define (metal_vector->buffer_ptr metal-vector)
+(define (metal_vector->data_ptr metal-vector)
   (ptr-ref metal-vector _pointer 0))
-(define (metal_vector->buffer_len metal-vector)
+(define (metal_vector->data_len metal-vector)
   (ptr-ref metal-vector _size 1))
 (define (metal_vector->data_type metal-vector)
   (ptr-ref metal-vector _metal_data_type 2))
