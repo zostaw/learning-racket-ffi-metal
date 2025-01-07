@@ -15,22 +15,11 @@ NS_ASSUME_NONNULL_BEGIN
 extern "C" {
 #endif
 
-// Function to initialize the MetalAdder object
-void* createMetalAdder(const char *metallib_full_path);
-
-// Function to perform computation on GPU
-void performComputation(void* adder);
 
 #ifdef __cplusplus
 }
 #endif
 
 
-@interface MetalAdder : NSObject
-@property (nonatomic, strong) id<MTLBuffer> mBufferResult;
-- (instancetype) initWithDevice: (id<MTLDevice>) device customLibraryPath: (NSString*) customLibraryPath;
-- (void) prepareData;
-- (void) sendComputeCommand;
-@end
 
 NS_ASSUME_NONNULL_END
