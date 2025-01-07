@@ -121,6 +121,21 @@
   (let ([vec-len (metal_vector->data_len m-vector)])
         (make-cvector* (mvector->cvector-ffi m-vector) _float vec-len)))
 
+(define (list->mvector metal-config lst #:data-type [data-type 'METAL_FLOAT])
+  (match data-type
+    ['METAL_FLOAT 
+     (create-mvector metal-config 
+                (list->cvector lst _float) 
+                                  'METAL_FLOAT 
+                                  (length lst))]
+    ['METAL_INT32
+     (create-mvector metal-config 
+                (list->cvector lst _int32) 
+                                  'METAL_INT32 
+                                  (length lst))]
+    [_ (error "Unexpected data-type in list->mvector definiiton")]))
+
+
 
 
 
@@ -161,27 +176,9 @@
 
 ;; With result buffer preallocation
 
-(metal_config->device metal-config)
-
-(define vector-size (expt 2 24))
-
-(define mvector-A (create-mvector metal-config 
-                                  (list->cvector (list 1.0 2.0 3.0 4.0) _float) 
-                                  'METAL_FLOAT 
-                                  4))
-
-(cvector-length (mvector->cvector mvector-A))
-
-
-(define mvector-B (create-mvector metal-config 
-                                  (list->cvector (list 1.0 2.0 3.0 4.0) _float) 
-                                  'METAL_FLOAT 
-                                  4))
-
-(define mvector-r1 (create-mvector metal-config (list->cvector (list 0.0 0.0 0.0 0.0) _float) 
-                                  'METAL_FLOAT 
-                                  4))
-
+(define mvector-A (list->mvector metal-config (list 1.0 2.0 3.0 4.0)))
+(define mvector-B (list->mvector metal-config (list 1.0 2.0 3.0 4.0)))
+(define mvector-r1 (list->mvector metal-config (make-list 4 0.0)))
 
 
 (void (compute-add-with-allocated-result metal-config mvector-A mvector-B mvector-r1))
@@ -189,11 +186,8 @@
 (define cvector-r1 (mvector->cvector mvector-r1))
 
 
-(let ([n (cvector-length cvector-r1)])
-  (displayln
- (format "First ~a thingies:  ~a"
-         n
-         (cvector->list cvector-r1))))
+(printf "Results:  ~a\n"
+        (cvector->list cvector-r1))
 
 
 
@@ -202,25 +196,15 @@
 ;; Without prealocation
 
 
-(define mvector-C (create-mvector metal-config 
-                                  (list->cvector (list 1.0 2.0 3.0 4.0) _float) 
-                                  'METAL_FLOAT 
-                                  4))
-(define mvector-D (create-mvector metal-config 
-                                  (list->cvector (list 1.0 2.0 3.0 4.0) _float) 
-                                  'METAL_FLOAT 
-                                  4))
-
+(define mvector-C (list->mvector metal-config (list 1.0 2.0 3.0 4.0)))
+(define mvector-D (list->mvector metal-config (list 1.0 2.0 3.0 4.0)))
 
 (define mvector-r2 (compute-add metal-config mvector-C mvector-D))
 
 
 (define cvector-r2 (mvector->cvector mvector-r2))
 
-(let ([n (cvector-length cvector-r2)])
-  (displayln
- (format "First ~a thingies:  ~a"
-         n
-         (cvector->list cvector-r2))))
+(printf "Results:  ~a\n"
+        (cvector->list cvector-r2))
 
 
