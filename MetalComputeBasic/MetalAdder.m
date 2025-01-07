@@ -26,6 +26,13 @@ struct metal_vector {
               id<MTLDevice> device;
 };
 
+struct c_vector {
+              float* data_ptr;
+              size_t data_len;
+              enum metal_data_type data_type;
+};
+
+
 
 void encodeAddCommand(id<MTLComputeCommandEncoder> computeEncoder,
                       id<MTLComputePipelineState> pipelineState,
@@ -153,12 +160,16 @@ struct metal_vector computeAdd(id<MTLDevice> _mDevice, id<MTLLibrary> _mLibrary,
         @throw [NSException exceptionWithName:@"MyException" reason:@"Vectors have different types." userInfo:nil];
     }
 
+    if (bufferA->device != bufferB->device) {
+        @throw [NSException exceptionWithName:@"MyException" reason:@"Vectors seem to be allocated on different devices." userInfo:nil];
+    }
+
     if (bufferA->buffer_ptr == NULL) {
         @throw [NSException exceptionWithName:@"MyException" reason:@"First vector is NULL." userInfo:nil];
     }
 
     if (bufferB->buffer_ptr == NULL) {
-        @throw [NSException exceptionWithName:@"MyException" reason:@"First vector is NULL." userInfo:nil];
+        @throw [NSException exceptionWithName:@"MyException" reason:@"Second vector is NULL." userInfo:nil];
     }
 
     size_t bufferSize = bufferA->buffer_len;
@@ -333,17 +344,22 @@ void destroyMetalVector(struct metal_vector* vec) {
 
 
 __attribute__((visibility("default")))
-float* getCVector(struct metal_vector vec) {
+struct c_vector getCVector(struct metal_vector vec) {
+
+    struct c_vector* cvec = malloc(sizeof(struct c_vector));
 
     id<MTLBuffer>  _mBuffer  = vec.buffer_ptr;
 
     if (!_mBuffer) {
         NSLog(@"Error: One or more Metal objects are invalid.");
-        return false;
     }
 
     float *result = _mBuffer.contents;
 
-    return result;
+    cvec->data_ptr = result;
+    cvec->data_len = vec.buffer_len;
+    cvec->data_type = vec.data_type;
+
+    return *cvec;
 }
 

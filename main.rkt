@@ -44,9 +44,16 @@
   (ptr-ref metal-vector _pointer 3))
 
 (define-cstruct _c_vector
-                ([buffer_ptr    _pointer]
-                 [buffer_len    _pointer]
-                 [data_type     _metal_data_type]))
+                ([data_ptr    _pointer]
+                 [data_len    _size]
+                 [data_type   _metal_data_type]))
+
+(define (c_vector->data_ptr c-vector)
+  (ptr-ref c-vector _pointer 0))
+(define (c_vector->data_len c-vector)
+  (ptr-ref c-vector _size 1))
+(define (c_vector->data_type c-vector)
+  (ptr-ref c-vector _metal_data_type 2))
 
 
 
@@ -63,6 +70,8 @@
   #:c-id createMetalLibrary)
 
 
+(define mdevice (create-metal-device metallib-path))
+(define mlibrary (create-metal-library mdevice metallib-path))
 
 
 
@@ -101,13 +110,11 @@
 
 
 
-(define-metal mvector->cvector-orig
+(define-metal mvector->cvector
   (_fun _metal_vector
-        -> _float_ptr)
+        -> _c_vector)
   #:c-id getCVector)
 
-(define (mvector->cvector vec)
-  (values (mvector->cvector-orig vec) (metal_vector->buffer_len vec)))
 
 
 
@@ -140,8 +147,6 @@
 
 
 ;; functional API
-(define mdevice (create-metal-device metallib-path))
-(define mlibrary (create-metal-library mdevice metallib-path))
 
 
 (define vector-size (expt 2 24))
@@ -161,14 +166,14 @@
 
 (void (compute-add-with-allocated-result mdevice mlibrary mvector-A mvector-B mvector-r1))
 
-(define-values (cvector-r1 len-r1) (mvector->cvector mvector-r1))
+(define cvector-r1 (mvector->cvector mvector-r1))
 
-(let ([n len-r1])
+(let ([n (c_vector->data_len cvector-r1)])
   (displayln
  (format "First ~a thingies:  ~a"
          n
          (map (λ (i)
-                (ptr-ref cvector-r1 _float i))
+                (ptr-ref (c_vector->data_ptr cvector-r1) _float i))
               (range n))
          )))
 
@@ -190,14 +195,14 @@
 (define mvector-r2 (compute-add mdevice mlibrary mvector-C mvector-D))
 
 
-(define-values (cvector-r2 len-r2) (mvector->cvector mvector-r2))
+(define cvector-r2 (mvector->cvector mvector-r2))
 
-(let ([n len-r2])
+(let ([n (c_vector->data_len cvector-r2)])
   (displayln
  (format "First ~a thingies:  ~a"
          n
          (map (λ (i)
-                (ptr-ref cvector-r2 _float i))
+                (ptr-ref (c_vector->data_ptr cvector-r2) _float i))
               (range n))
          )))
 
