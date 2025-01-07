@@ -38,12 +38,11 @@
   (ptr-ref metal-config _pointer 1))
 
 (define-cstruct _metal_vector
-                ([data_ptr         _pointer]
-                 [data_len         _size]
-                 [skip         _size]
-                 [data_type        _metal_data_type]
-                 [metal_config     _metal_config])
-                #:alignment 8)
+                ([data_ptr                      _pointer]
+                 [data_len                      _size]
+                 [this-is-artifact-skip-it      _size]
+                 [data_type                     _metal_data_type]
+                 [metal_config                  _metal_config]))
 
 (define (metal_vector->data_ptr metal-vector)
   (ptr-ref metal-vector _pointer 0))
