@@ -7,10 +7,6 @@ A class to manage all of the Metal objects this app creates.
 
 #import "MetalAdder.h"
 
-// The number of floats in each array, and the size of the arrays in bytes.
-const unsigned int arrayLength = 1 << 24;
-const unsigned int bufferSize = arrayLength * sizeof(float);
-
 
 
 
@@ -38,7 +34,8 @@ void encodeAddCommand(id<MTLComputeCommandEncoder> computeEncoder,
                       id<MTLComputePipelineState> pipelineState,
                       id<MTLBuffer> bufferA,
                       id<MTLBuffer> bufferB,
-                      id<MTLBuffer> bufferResult) {
+                      id<MTLBuffer> bufferResult,
+                      size_t arrayLength) {
 
     // Encode the pipeline state object and its parameters.
     [computeEncoder setComputePipelineState:pipelineState];
@@ -74,6 +71,7 @@ bool computeAddWithAllocatedResultBuffer(void* device, void*library, struct meta
     id<MTLBuffer>  _mBufferA      = bufferA->buffer_ptr;
     id<MTLBuffer>  _mBufferB      = bufferB->buffer_ptr;
     id<MTLBuffer>  _mBufferResult = bufferResult->buffer_ptr;
+    size_t bufferSize = bufferA->buffer_len;
     // id<MTLBuffer>  _mBufferResult = [_mDevice newBufferWithLength:bufferSize options:MTLResourceStorageModeShared];
 
     // Validate casted objects
@@ -119,7 +117,7 @@ bool computeAddWithAllocatedResultBuffer(void* device, void*library, struct meta
     id<MTLComputeCommandEncoder> _mComputeEncoder = [_mCommandBuffer computeCommandEncoder];
     assert(_mComputeEncoder != nil);
 
-    encodeAddCommand(_mComputeEncoder, _mAddFunctionPSO, _mBufferA, _mBufferB, _mBufferResult);
+    encodeAddCommand(_mComputeEncoder, _mAddFunctionPSO, _mBufferA, _mBufferB, _mBufferResult, bufferSize);
 
     // End the compute pass.
     [_mComputeEncoder endEncoding];
@@ -219,7 +217,7 @@ struct metal_vector computeAdd(id<MTLDevice> _mDevice, id<MTLLibrary> _mLibrary,
     id<MTLComputeCommandEncoder> _mComputeEncoder = [_mCommandBuffer computeCommandEncoder];
     assert(_mComputeEncoder != nil);
 
-    encodeAddCommand(_mComputeEncoder, _mAddFunctionPSO, _mBufferA, _mBufferB, _mBufferResult);
+    encodeAddCommand(_mComputeEncoder, _mAddFunctionPSO, _mBufferA, _mBufferB, _mBufferResult, bufferSize);
 
     // End the compute pass.
     [_mComputeEncoder endEncoding];
