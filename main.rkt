@@ -121,6 +121,10 @@
   (let ([vec-len (metal_vector->data_len m-vector)])
         (make-cvector* (mvector->cvector-ffi m-vector) _float vec-len)))
 
+(define (mvector->list m-vector)
+  (cvector->list (mvector->cvector m-vector)))
+
+
 (define (list->mvector metal-config lst #:data-type [data-type 'METAL_FLOAT])
   (match data-type
     ['METAL_FLOAT 
@@ -134,12 +138,6 @@
                                   'METAL_INT32 
                                   (length lst))]
     [_ (error "Unexpected data-type in list->mvector definiiton")]))
-
-
-
-
-
-
 
 
 
@@ -167,6 +165,7 @@
 
 
 
+
 ;; functional API
 
 (define metal-config (initialize-metal metallib-path))
@@ -176,18 +175,18 @@
 
 ;; With result buffer preallocation
 
-(define mvector-A (list->mvector metal-config (list 1.0 2.0 3.0 4.0)))
-(define mvector-B (list->mvector metal-config (list 1.0 2.0 3.0 4.0)))
-(define mvector-r1 (list->mvector metal-config (make-list 4 0.0)))
-
+(define mvector-A (list->mvector metal-config 
+                                 (list 1.0 2.0 3.0 4.0)))
+(define mvector-B (list->mvector metal-config 
+                                 (list 1.0 2.0 3.0 4.0)))
+(define mvector-r1 (list->mvector metal-config 
+                                  (make-list 4 0.0)))
 
 (void (compute-add-with-allocated-result metal-config mvector-A mvector-B mvector-r1))
 
-(define cvector-r1 (mvector->cvector mvector-r1))
+(define r1 (mvector->list mvector-r1))
 
-
-(printf "Results:  ~a\n"
-        (cvector->list cvector-r1))
+(printf "Results:  ~a\n" r1)
 
 
 
@@ -196,15 +195,14 @@
 ;; Without prealocation
 
 
-(define mvector-C (list->mvector metal-config (list 1.0 2.0 3.0 4.0)))
-(define mvector-D (list->mvector metal-config (list 1.0 2.0 3.0 4.0)))
-
+(define mvector-C (list->mvector metal-config 
+                                 (list 1.0 2.0 3.0 4.0)))
+(define mvector-D (list->mvector metal-config 
+                                 (list 1.0 2.0 3.0 4.0)))
 (define mvector-r2 (compute-add metal-config mvector-C mvector-D))
 
+(define r2 (mvector->list mvector-r2))
 
-(define cvector-r2 (mvector->cvector mvector-r2))
-
-(printf "Results:  ~a\n"
-        (cvector->list cvector-r2))
+(printf "Results:  ~a\n" r2)
 
 
