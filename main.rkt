@@ -28,11 +28,20 @@
                            [else (error 'metal_data_type "unknown enum value")]))))
 
 
+(define-cstruct _metal_config
+                ([device        _pointer]
+                 [library       _pointer]))
+
+(define (metal_config->device metal-config)
+  (ptr-ref metal-config _pointer 0))
+(define (metal_config->library metal-config)
+  (ptr-ref metal-config _pointer 1))
+
 (define-cstruct _metal_vector
-                ([data_ptr    _pointer]
-                 [data_len    _size]
-                 [data_type     _metal_data_type]
-                 [device        _pointer]))
+                ([data_ptr         _pointer]
+                 [data_len         _size]
+                 [data_type        _metal_data_type]
+                 [metal_config     _metal_config]))
 
 (define (metal_vector->data_ptr metal-vector)
   (ptr-ref metal-vector _pointer 0))
@@ -43,17 +52,11 @@
 (define (metal_vector->device metal-vector)
   (ptr-ref metal-vector _pointer 3))
 
-(define-cstruct _c_vector
-                ([data_ptr    _pointer]
-                 [data_len    _size]
-                 [data_type   _metal_data_type]))
+(define (mvector->ptr m-vector)
+  (metal_vector->data_ptr m-vector))
+(define (mvector->length m-vector)
+  (metal_vector->data_len m-vector))
 
-(define (c_vector->data_ptr c-vector)
-  (ptr-ref c-vector _pointer 0))
-(define (c_vector->data_len c-vector)
-  (ptr-ref c-vector _size 1))
-(define (c_vector->data_type c-vector)
-  (ptr-ref c-vector _metal_data_type 2))
 
 
 
@@ -63,6 +66,9 @@
   (_fun _string -> _pointer)
   #:c-id createMetalDevice)
 
+(define-metal initialize-metal
+  (_fun _string -> _metal_config)
+  #:c-id initializeMetal)
 
 
 (define-metal create-metal-library
@@ -70,37 +76,33 @@
   #:c-id createMetalLibrary)
 
 
-(define mdevice (create-metal-device metallib-path))
-(define mlibrary (create-metal-library mdevice metallib-path))
 
 
 
-(define-metal compute-add-with-allocated-result-orig
+(define-metal compute-add-with-allocated-result-ffi
   (_fun _pointer
-        _pointer
         _pointer
         _pointer
         _pointer
         -> _bool)
   #:c-id computeAddWithAllocatedResultBuffer)
 
-(define (compute-add-with-allocated-result mdevice mlibrary mvector-A mvector-B mvector-Result)
-  (let ([result (compute-add-with-allocated-result-orig mdevice mlibrary mvector-A mvector-B mvector-Result)])
+(define (compute-add-with-allocated-result metal-config mvector-A mvector-B mvector-Result)
+  (let ([result (compute-add-with-allocated-result-ffi metal-config mvector-A mvector-B mvector-Result)])
     (if (not result)
         (error "ComputeAdd returned error.")
         result)))
 
 
-(define-metal compute-add-orig
+(define-metal compute-add-ffi
   (_fun _pointer
-        _pointer
         _pointer
         _pointer
         -> _metal_vector)
   #:c-id computeAdd)
 
-(define (compute-add mdevice mlibrary mvector-A mvector-B)
-  (let ([result (compute-add-orig mdevice mlibrary mvector-A mvector-B)])
+(define (compute-add metal-config mvector-A mvector-B)
+  (let ([result (compute-add-ffi metal-config mvector-A mvector-B)])
     (if (not result)
         (error "ComputeAdd returned error.")
         result)))
@@ -110,10 +112,14 @@
 
 
 
-(define-metal mvector->cvector
+(define-metal mvector->cvector-ffi
   (_fun _metal_vector
-        -> _c_vector)
+        -> _pointer)
   #:c-id getCVector)
+
+(define (mvector->cvector m-vector)
+  (let ([vec-len (metal_vector->data_len m-vector)])
+        (make-cvector* (mvector->cvector-ffi m-vector) _float vec-len)))
 
 
 
@@ -125,7 +131,7 @@
 
 
 (define-metal create-mvector
-  (_fun _pointer ; device
+  (_fun _pointer ; metal_config
         [vec : _cvector]
         [_int = (cvector-length vec)]
         _metal_data_type   ; type
@@ -148,34 +154,46 @@
 
 ;; functional API
 
+(define metal-config (initialize-metal metallib-path))
+
+
+
+
+;; With result buffer preallocation
+
+(metal_config->device metal-config)
 
 (define vector-size (expt 2 24))
 
-(define mvector-A (create-mvector mdevice (list->cvector (list 1.0 2.0 3.0 4.0) _float) 
-                                  'METAL_FLOAT 
-                                  4))
-(define mvector-B (create-mvector mdevice (list->cvector (list 1.0 2.0 3.0 4.0) _float) 
-                                  'METAL_FLOAT 
-                                  4))
-
-(define mvector-r1 (create-mvector mdevice (list->cvector (list 0.0 0.0 0.0 0.0) _float) 
+(define mvector-A (create-mvector metal-config 
+                                  (list->cvector (list 1.0 2.0 3.0 4.0) _float) 
                                   'METAL_FLOAT 
                                   4))
 
+(cvector-length (mvector->cvector mvector-A))
 
 
-(void (compute-add-with-allocated-result mdevice mlibrary mvector-A mvector-B mvector-r1))
+(define mvector-B (create-mvector metal-config 
+                                  (list->cvector (list 1.0 2.0 3.0 4.0) _float) 
+                                  'METAL_FLOAT 
+                                  4))
+
+(define mvector-r1 (create-mvector metal-config (list->cvector (list 0.0 0.0 0.0 0.0) _float) 
+                                  'METAL_FLOAT 
+                                  4))
+
+
+
+(void (compute-add-with-allocated-result metal-config mvector-A mvector-B mvector-r1))
 
 (define cvector-r1 (mvector->cvector mvector-r1))
 
-(let ([n (c_vector->data_len cvector-r1)])
+
+(let ([n (cvector-length cvector-r1)])
   (displayln
  (format "First ~a thingies:  ~a"
          n
-         (map (λ (i)
-                (ptr-ref (c_vector->data_ptr cvector-r1) _float i))
-              (range n))
-         )))
+         (cvector->list cvector-r1))))
 
 
 
@@ -184,26 +202,25 @@
 ;; Without prealocation
 
 
-(define mvector-C (create-mvector mdevice (list->cvector (list 1.0 2.0 3.0 4.0) _float) 
+(define mvector-C (create-mvector metal-config 
+                                  (list->cvector (list 1.0 2.0 3.0 4.0) _float) 
                                   'METAL_FLOAT 
                                   4))
-(define mvector-D (create-mvector mdevice (list->cvector (list 1.0 2.0 3.0 4.0) _float) 
+(define mvector-D (create-mvector metal-config 
+                                  (list->cvector (list 1.0 2.0 3.0 4.0) _float) 
                                   'METAL_FLOAT 
                                   4))
 
 
-(define mvector-r2 (compute-add mdevice mlibrary mvector-C mvector-D))
+(define mvector-r2 (compute-add metal-config mvector-C mvector-D))
 
 
 (define cvector-r2 (mvector->cvector mvector-r2))
 
-(let ([n (c_vector->data_len cvector-r2)])
+(let ([n (cvector-length cvector-r2)])
   (displayln
  (format "First ~a thingies:  ~a"
          n
-         (map (λ (i)
-                (ptr-ref (c_vector->data_ptr cvector-r2) _float i))
-              (range n))
-         )))
+         (cvector->list cvector-r2))))
 
 

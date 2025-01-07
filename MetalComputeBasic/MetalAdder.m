@@ -8,6 +8,11 @@ A class to manage all of the Metal objects this app creates.
 #import "MetalAdder.h"
 
 
+struct metal_config {
+              id<MTLDevice> device;
+              id<MTLLibrary> library;
+};
+
 enum metal_data_type {
     METAL_FLOAT,
     METAL_INT32,
@@ -17,13 +22,7 @@ struct metal_vector {
               id<MTLBuffer> data_ptr;
               size_t data_len;
               enum metal_data_type data_type;
-              id<MTLDevice> device;
-};
-
-struct c_vector {
-              float* data_ptr;
-              size_t data_len;
-              enum metal_data_type data_type;
+              struct metal_config metal_config;
 };
 
 
@@ -60,12 +59,15 @@ void encodeAddCommand(id<MTLComputeCommandEncoder> computeEncoder,
 
 
 __attribute__((visibility("default")))
-bool computeAddWithAllocatedResultBuffer(void* device, void*library, struct metal_vector* bufferA, struct metal_vector* bufferB, struct metal_vector* bufferResult) {
+bool computeAddWithAllocatedResultBuffer(struct metal_config* metal_config, struct metal_vector* bufferA, struct metal_vector* bufferB, struct metal_vector* bufferResult) {
 
     NSError* error = nil;
 
-    id<MTLDevice>  _mDevice       = (__bridge id<MTLDevice>)device;
-    id<MTLLibrary> _mLibrary      = (__bridge id<MTLLibrary>)library;
+    id<MTLDevice>  _mDevice = metal_config->device;
+    id<MTLLibrary>  _mLibrary = metal_config->library;
+
+    // id<MTLDevice>  _mDevice       = (__bridge id<MTLDevice>)device;
+    // id<MTLLibrary> _mLibrary      = (__bridge id<MTLLibrary>)library;
     id<MTLBuffer>  _mBufferA      = bufferA->data_ptr;
     id<MTLBuffer>  _mBufferB      = bufferB->data_ptr;
     id<MTLBuffer>  _mBufferResult = bufferResult->data_ptr;
@@ -142,9 +144,10 @@ bool computeAddWithAllocatedResultBuffer(void* device, void*library, struct meta
 
 
 __attribute__((visibility("default")))
-struct metal_vector computeAdd(id<MTLDevice> _mDevice, id<MTLLibrary> _mLibrary, struct metal_vector* bufferA, struct metal_vector* bufferB) {
+struct metal_vector computeAdd(struct metal_config* metal_config, struct metal_vector* bufferA, struct metal_vector* bufferB) {
 
     NSError* error = nil;
+
 
     struct metal_vector* bufferResult = malloc(sizeof(struct metal_vector));
 
@@ -156,9 +159,19 @@ struct metal_vector computeAdd(id<MTLDevice> _mDevice, id<MTLLibrary> _mLibrary,
         @throw [NSException exceptionWithName:@"MyException" reason:@"Vectors have different types." userInfo:nil];
     }
 
-    if (bufferA->device != bufferB->device) {
+    if (bufferA->metal_config.device != bufferB->metal_config.device) {
         @throw [NSException exceptionWithName:@"MyException" reason:@"Vectors seem to be allocated on different devices." userInfo:nil];
     }
+
+    if (bufferA->metal_config.library != bufferB->metal_config.library) {
+        @throw [NSException exceptionWithName:@"MyException" reason:@"Vectors seem to be allocated on different devices." userInfo:nil];
+    }
+
+    id<MTLDevice>  _mDevice = bufferA->metal_config.device;
+    id<MTLLibrary>  _mLibrary = bufferA->metal_config.library;
+
+    // id<MTLDevice>  _mDevice = metal_config->device;
+    // id<MTLLibrary>  _mLibrary = metal_config->library;
 
     if (bufferA->data_ptr == NULL) {
         @throw [NSException exceptionWithName:@"MyException" reason:@"First vector is NULL." userInfo:nil];
@@ -239,7 +252,7 @@ struct metal_vector computeAdd(id<MTLDevice> _mDevice, id<MTLLibrary> _mLibrary,
     bufferResult->data_ptr = _mBufferResult;
     bufferResult->data_len = bufferSize;
     bufferResult->data_type = data_type;
-    bufferResult->device = _mDevice;
+    bufferResult->metal_config.device = _mDevice;
 
     return *bufferResult;
 }
@@ -284,18 +297,42 @@ void* createMetalLibrary(void* device, const char *metallib_full_path) {
 }
 
 
+__attribute__((visibility(("default"))))
+struct metal_config initializeMetal(const char *metallib_full_path) {
+    printf("%s\n", metallib_full_path);
+
+    struct metal_config* config = malloc(sizeof(struct metal_config));
+
+    id<MTLDevice> mDevice = MTLCreateSystemDefaultDevice();
+
+    NSString *customLibraryPath = [NSString stringWithUTF8String:metallib_full_path];
+    NSURL *libraryURL = [NSURL fileURLWithPath:customLibraryPath];  // Convert the file path to an NSURL
+    id<MTLLibrary> mLibrary = [mDevice newLibraryWithURL:libraryURL error:nil];  // Use newLibraryWithURL instead of newLibraryWithFile
+
+    if (mLibrary == nil)
+    {
+        @throw [NSException exceptionWithName:@"MyException" reason:@"Failed to find the library." userInfo:nil];
+    }
+
+
+    config->device = mDevice;
+    config->library = mLibrary;
+
+    return *config;
+}
 
 
 
 __attribute__((visibility("default")))
-struct metal_vector createMetalVector(id<MTLDevice> mDevice, float* dataA, size_t numElements, enum metal_data_type data_type) {
+struct metal_vector createMetalVector(struct metal_config* metal_config, float* dataA, size_t numElements, enum metal_data_type data_type) {
 
+    id<MTLDevice>  mDevice = metal_config->device;
     struct metal_vector* vec = malloc(sizeof(struct metal_vector));
+
     if (!vec) {
         @throw [NSException exceptionWithName:@"MyException" reason:@"Vector could not be allocated." userInfo:nil];
     }
 
-    
     size_t bufferSize = 0;
     switch (data_type) {
         case METAL_FLOAT:
@@ -321,11 +358,10 @@ struct metal_vector createMetalVector(id<MTLDevice> mDevice, float* dataA, size_
     void* bufferContentsA = [mBufferA contents];
     memcpy(bufferContentsA, dataA, bufferSize);
 
-    // vec->data_ptr = (__bridge_retained void*)mBufferA;
     vec->data_ptr = mBufferA;
     vec->data_len = numElements;
     vec->data_type = data_type;
-    vec->device = mDevice;
+    vec->metal_config = *metal_config;
 
     return *vec;
 }
@@ -340,9 +376,7 @@ void destroyMetalVector(struct metal_vector* vec) {
 
 
 __attribute__((visibility("default")))
-struct c_vector getCVector(struct metal_vector vec) {
-
-    struct c_vector* cvec = malloc(sizeof(struct c_vector));
+float* getCVector(struct metal_vector vec) {
 
     id<MTLBuffer>  _mBuffer  = vec.data_ptr;
 
@@ -352,10 +386,5 @@ struct c_vector getCVector(struct metal_vector vec) {
 
     float *result = _mBuffer.contents;
 
-    cvec->data_ptr = result;
-    cvec->data_len = vec.data_len;
-    cvec->data_type = vec.data_type;
-
-    return *cvec;
+    return result;
 }
-
