@@ -192,17 +192,16 @@
 ;; With result buffer preallocation
 (define mvector-A (list->mvector metal-config 
                                  (list 1.0 2.0 3.0 4.0)))
-
-
 (define mvector-B (list->mvector metal-config 
                                  (list 1.0 2.0 3.0 4.0)))
+
+
 (define mvector-r1 (list->mvector metal-config 
                                   (make-list 4 0.0)))
-
 (void (compute-add-with-allocated-result metal-config mvector-A mvector-B mvector-r1))
 
-(define r1 (mvector->list mvector-r1))
 
+(define r1 (mvector->list mvector-r1))
 (printf "Results:  ~a\n" r1)
 
 
@@ -216,10 +215,12 @@
                                  (list 1.0 2.0 3.0 4.0)))
 (define mvector-D (list->mvector metal-config 
                                  (list 1.0 2.0 3.0 4.0)))
+
+
 (define mvector-r2 (compute-add metal-config mvector-C mvector-D))
 
-(define r2 (mvector->list mvector-r2))
 
+(define r2 (mvector->list mvector-r2))
 (printf "Results:  ~a\n" r2)
 
 
