@@ -293,7 +293,7 @@ struct metal_vector compute(struct metal_config* metal_config, struct metal_vect
 __attribute__((visibility(("default"))))
 void* createMetalDevice(const char *metallib_full_path) {
     // For debugging purposes:
-    // printf("%s\n", metallib_full_path);
+    printf("%s\n", metallib_full_path);
 
     id<MTLDevice> mDevice = MTLCreateSystemDefaultDevice();
 
@@ -315,8 +315,8 @@ void* createMetalLibrary(id<MTLDevice> mDevice, const char *metallib_full_path) 
     }
 
     // For debugging purposes:
-    // NSArray<NSString *> *functionNames = [mLibrary functionNames];
-    // NSLog(@"Available functions: %@", functionNames);
+    NSArray<NSString *> *functionNames = [mLibrary functionNames];
+    NSLog(@"Available functions: %@", functionNames);
 
     return (__bridge_retained void*)mLibrary;
 }
