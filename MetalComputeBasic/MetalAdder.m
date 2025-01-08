@@ -104,7 +104,7 @@ bool computeWithAllocatedResultBuffer(struct metal_config* metal_config, struct 
     } else if (operation == METAL_MULT) {
         compFunction = [_mLibrary newFunctionWithName:@"mult_arrays"];
     } else {
-        @throw [NSException exceptionWithName:@"MyException" reason:@"Unknown operation. Use one of: ADD MULT." userInfo:nil];
+        @throw [NSException exceptionWithName:@"MyException" reason:@"Unknown operation. Use one of: METAL_ADD METAL_MULT." userInfo:nil];
     }
     
     if (compFunction == nil)
@@ -222,7 +222,7 @@ struct metal_vector compute(struct metal_config* metal_config, struct metal_vect
     } else if (operation == METAL_MULT) {
         compFunction = [_mLibrary newFunctionWithName:@"mult_arrays"];
     } else {
-        @throw [NSException exceptionWithName:@"MyException" reason:@"Unknown operation. Use one of: ADD MULT." userInfo:nil];
+        @throw [NSException exceptionWithName:@"MyException" reason:@"Unknown operation. Use one of: METAL_ADD METAL_MULT." userInfo:nil];
     }
     
     if (compFunction == nil)
@@ -292,7 +292,8 @@ struct metal_vector compute(struct metal_config* metal_config, struct metal_vect
 
 __attribute__((visibility(("default"))))
 void* createMetalDevice(const char *metallib_full_path) {
-    printf("%s\n", metallib_full_path);
+    // For debugging purposes:
+    // printf("%s\n", metallib_full_path);
 
     id<MTLDevice> mDevice = MTLCreateSystemDefaultDevice();
 
@@ -301,11 +302,8 @@ void* createMetalDevice(const char *metallib_full_path) {
 
 
 __attribute__((visibility(("default"))))
-void* createMetalLibrary(void* device, const char *metallib_full_path) {
+void* createMetalLibrary(id<MTLDevice> mDevice, const char *metallib_full_path) {
 
-    id<MTLDevice> mDevice = (__bridge id<MTLDevice>)device;
-
-    // 
     NSString *customLibraryPath = [NSString stringWithUTF8String:metallib_full_path];
     NSURL *libraryURL = [NSURL fileURLWithPath:customLibraryPath];  // Convert the file path to an NSURL
     id<MTLLibrary> mLibrary = [mDevice newLibraryWithURL:libraryURL error:nil];  // Use newLibraryWithURL instead of newLibraryWithFile
@@ -316,27 +314,20 @@ void* createMetalLibrary(void* device, const char *metallib_full_path) {
         return nil;
     }
 
+    // For debugging purposes:
+    // NSArray<NSString *> *functionNames = [mLibrary functionNames];
+    // NSLog(@"Available functions: %@", functionNames);
+
     return (__bridge_retained void*)mLibrary;
 }
 
 
 __attribute__((visibility(("default"))))
 struct metal_config initializeMetal(const char *metallib_full_path) {
-    printf("%s\n", metallib_full_path);
-
     struct metal_config* config = malloc(sizeof(struct metal_config));
 
-    id<MTLDevice> mDevice = MTLCreateSystemDefaultDevice();
-
-    NSString *customLibraryPath = [NSString stringWithUTF8String:metallib_full_path];
-    NSURL *libraryURL = [NSURL fileURLWithPath:customLibraryPath];  // Convert the file path to an NSURL
-    id<MTLLibrary> mLibrary = [mDevice newLibraryWithURL:libraryURL error:nil];  // Use newLibraryWithURL instead of newLibraryWithFile
-
-    if (mLibrary == nil)
-    {
-        @throw [NSException exceptionWithName:@"MyException" reason:@"Failed to find the library." userInfo:nil];
-    }
-
+    id<MTLDevice> mDevice = (__bridge id<MTLDevice>)createMetalDevice(metallib_full_path);
+    id<MTLLibrary> mLibrary = (__bridge id<MTLLibrary>)createMetalLibrary(mDevice, metallib_full_path);
 
     config->device = mDevice;
     config->library = mLibrary;

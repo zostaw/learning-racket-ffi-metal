@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		35E5C6182D2E65B300BA2875 /* mult.metal in Sources */ = {isa = PBXBuildFile; fileRef = 35E5C6172D2E65B300BA2875 /* mult.metal */; };
 		3ADA093523458F4800F5A9C6 /* CoreGraphics.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 3ADA093423458F4400F5A9C6 /* CoreGraphics.framework */; };
 		5FB82D19221CD515006D0331 /* MetalAdder.m in Sources */ = {isa = PBXBuildFile; fileRef = 5FB82D18221CD515006D0331 /* MetalAdder.m */; };
 		5FFAD4DC21C8648800384F46 /* Metal.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 5FFAD4DB21C8648800384F46 /* Metal.framework */; };
@@ -27,6 +28,7 @@
 
 /* Begin PBXFileReference section */
 		00E3B7B90BF943DB3EE281D2 /* SampleCode.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = SampleCode.xcconfig; path = Configuration/SampleCode.xcconfig; sourceTree = "<group>"; };
+		35E5C6172D2E65B300BA2875 /* mult.metal */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.metal; path = mult.metal; sourceTree = "<group>"; };
 		3ADA093423458F4400F5A9C6 /* CoreGraphics.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreGraphics.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX10.15.Internal.sdk/System/Library/Frameworks/CoreGraphics.framework; sourceTree = DEVELOPER_DIR; };
 		4A106723543224C1C65C1662 /* LICENSE.txt */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text; path = LICENSE.txt; sourceTree = "<group>"; };
 		5FB82D17221CD515006D0331 /* MetalAdder.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = MetalAdder.h; sourceTree = "<group>"; };
@@ -81,6 +83,7 @@
 		5FFAD4D221C8647E00384F46 /* MetalComputeBasic */ = {
 			isa = PBXGroup;
 			children = (
+				35E5C6172D2E65B300BA2875 /* mult.metal */,
 				5FB82D17221CD515006D0331 /* MetalAdder.h */,
 				5FB82D18221CD515006D0331 /* MetalAdder.m */,
 				5FFAD4DD21C869B700384F46 /* add.metal */,
@@ -161,6 +164,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				35E5C6182D2E65B300BA2875 /* mult.metal in Sources */,
 				5FB82D19221CD515006D0331 /* MetalAdder.m in Sources */,
 				5FFAD4DE21C869B700384F46 /* add.metal in Sources */,
 			);

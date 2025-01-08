@@ -150,8 +150,6 @@
 
 (define (mvector->cvector m-vector)
 (begin 
-  (printf "here")
-  (printf "here matching datatype : ~a" (metal_vector->data_type m-vector))
   (match (metal_vector->data_type m-vector)
     ['METAL_FLOAT 
 
