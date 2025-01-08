@@ -4,7 +4,7 @@
          ffi/unsafe/define
          ffi/cvector
          ffi/unsafe/cvector)
-
+(provide (all-defined-out))
 
 (define-ffi-definer define-metal
   (ffi-lib "Build/Products/Debug/libMetalComputeBasic"))
@@ -102,13 +102,13 @@
 (define (compute-add-with-allocated-result metal-config mvector-A mvector-B mvector-Result)
   (let ([result (compute-with-allocated-result-ffi metal-config mvector-A mvector-B mvector-Result 'METAL_ADD)])
     (if (not result)
-        (error "Compute returned error.")
+        (error "compute returned error.")
         result)))
 
 (define (compute-mult-with-allocated-result metal-config mvector-A mvector-B mvector-Result)
   (let ([result (compute-with-allocated-result-ffi metal-config mvector-A mvector-B mvector-Result 'METAL_MULT)])
     (if (not result)
-        (error "Compute returned error.")
+        (error "compute returned error.")
         result)))
 
 
@@ -138,6 +138,7 @@
 
 
 
+
 (define-metal float-mvector->cvector-ffi
   (_fun _metal_vector
         -> _pointer)
@@ -148,17 +149,15 @@
         -> _pointer)
   #:c-id getCInt32Vector)
 
-(define (mvector->cvector m-vector)
-(begin 
-  (match (metal_vector->data_type m-vector)
-    ['METAL_FLOAT 
 
-     (let ([vec-len (metal_vector->data_len m-vector)])
-        (make-cvector* (float-mvector->cvector-ffi m-vector) _float vec-len))]
-    ['METAL_INT32
-     (let ([vec-len (metal_vector->data_len m-vector)])
-        (make-cvector* (int32-mvector->cvector-ffi m-vector) _int32 vec-len))]
-    [_ (error "Unexpected data-type in mvector->cvector definiiton")])))
+(define (mvector->cvector m-vector)
+  (let ([type  
+         (match (metal_vector->data_type m-vector)
+           ['METAL_FLOAT _float]
+           ['METAL_INT32 _int32]
+           [_ (error "Unexpected data-type in mvector->cvector definiiton")])])
+    (let ([vec-len (metal_vector->data_len m-vector)])
+      (make-cvector* (float-mvector->cvector-ffi m-vector) type vec-len))))
 
 (define (mvector->list m-vector)
   (cvector->list (mvector->cvector m-vector)))
@@ -166,20 +165,23 @@
 
 (define (list->mvector metal-config lst #:data-type [data-type 'METAL_FLOAT])
   (match data-type
-    ['METAL_FLOAT 
-     (create-mvector metal-config 
-                     (list->cvector lst _float) 
-                     data-type 
-                     (length lst))]
-    ['METAL_INT32
-     (create-mvector metal-config 
-                     (list->cvector lst _int32) 
-                     data-type 
-                     (length lst))]
-    [_ (error "Unexpected data-type in list->mvector definiiton")]))
+    ['METAL_FLOAT (cvector->mvector metal-config (list->cvector lst _float))]
+    ['METAL_INT32 (cvector->mvector metal-config (list->cvector lst _int32))]
+    [_ (error "Unexpected data-type in list->mvector definiton")]))
 
 
-
+(define (cvector->mvector metal-config c-vector)
+  (let ([data-type (match (ctype->layout (cvector-type c-vector))
+                     ['float 'METAL_FLOAT]
+                     ['int32 'METAL_INT32]
+                     [_ (error
+                         (format "Unsupported cvector type \"~a\" in cvector->mvector definiton. Have to be one of: 'float 'int32"
+                                 (ctype->layout (cvector-type c-vector))))])]
+        [c-vec-length (cvector-length c-vector)])
+    (create-mvector metal-config 
+                    c-vector
+                    data-type
+                    c-vec-length)))
 
 
 (define-metal create-mvector
@@ -199,32 +201,38 @@
 
 
 
+;; Test cvector->mvector back and forth
+(let ([metal-config (initialize-metal metallib-path)])
+  (mvector->list (cvector->mvector metal-config
+                                   (mvector->cvector (list->mvector metal-config 
+                                                                    (list 1.0 2.0 3.0 4.0))))))
 
+;; Test list->mvector back and forth
+(let ([metal-config (initialize-metal metallib-path)])
+  (mvector->list (create-mvector metal-config
+                                 (mvector->cvector (list->mvector metal-config 
+                                                                  (list 1.0 2.0 3.0 4.0)))
+                                 'METAL_FLOAT
+                                 4)))
 
-
-
-
-
-;; functional API
-
-(define metal-config (initialize-metal metallib-path))
 
 
 
 ;; With result buffer preallocation
-(define mvector-A (list->mvector metal-config 
-                                 (list 1.0 2.0 3.0 4.0)))
-(define mvector-B (list->mvector metal-config 
-                                 (list 1.0 2.0 3.0 4.0)))
+(let ([metal-config (initialize-metal metallib-path)])
+  (define mvector-A (list->mvector metal-config 
+                                   (list 1.0 2.0 3.0 4.0)))
+  (define mvector-B (list->mvector metal-config 
+                                   (list 1.0 2.0 3.0 4.0)))
 
 
-(define mvector-r1 (list->mvector metal-config 
-                                  (make-list 4 0.0)))
-(void (compute-add-with-allocated-result metal-config mvector-A mvector-B mvector-r1))
+  (define mvector-r1 (list->mvector metal-config 
+                                    (make-list 4 0.0)))
+  (void (compute-add-with-allocated-result metal-config mvector-A mvector-B mvector-r1))
 
 
-(define r1 (mvector->list mvector-r1))
-(printf "Results:  ~a\n" r1)
+  (define r1 (mvector->list mvector-r1))
+  (printf "Results:  ~a\n" r1))
 
 
 
@@ -232,17 +240,16 @@
 
 ;; Without prealocation
 
-
-(define mvector-C (list->mvector metal-config 
-                                 (list 1.0 2.0 3.0 4.0)))
-(define mvector-D (list->mvector metal-config 
-                                 (list 1.0 2.0 3.0 4.0)))
-
-
-(define mvector-r2 (compute-mult metal-config mvector-C mvector-D))
+(let ([metal-config (initialize-metal metallib-path)])
+  (define mvector-C (list->mvector metal-config 
+                                   (list 1.0 2.0 3.0 4.0)))
+  (define mvector-D (list->mvector metal-config 
+                                   (list 1.0 2.0 3.0 4.0)))
 
 
-(define r2 (mvector->list mvector-r2))
-(printf "Results:  ~a\n" r2)
+  (define mvector-r2 (compute-mult metal-config mvector-C mvector-D))
 
+
+  (define r2 (mvector->list mvector-r2))
+  (printf "Results:  ~a\n" r2))
 
