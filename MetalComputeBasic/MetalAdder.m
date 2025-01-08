@@ -1,7 +1,4 @@
 /*
-See LICENSE folder for this sample’s licensing information.
-
-Abstract:
 A class to manage all of the Metal objects this app creates.
 */
 
@@ -10,6 +7,18 @@ A class to manage all of the Metal objects this app creates.
 #include <stdio.h>
 
 
+typedef enum {
+    METAL_FLOAT = 0,
+    METAL_INT32 = 1,
+} metal_data_type;
+
+
+
+typedef enum {
+    METAL_ADD = 0,
+    METAL_MULT = 1,
+} metal_operation;
+
 
 
 struct metal_config {
@@ -17,10 +26,7 @@ struct metal_config {
               id<MTLLibrary> library;
 };
 
-typedef enum {
-    METAL_FLOAT = 0,
-    METAL_INT32 = 1,
-} metal_data_type;
+
 
 struct metal_vector {
               id<MTLBuffer> data_ptr;
@@ -28,6 +34,7 @@ struct metal_vector {
               metal_data_type data_type;
               struct metal_config metal_config;
 };
+
 
 
 void print_offsets() {
@@ -38,7 +45,8 @@ void print_offsets() {
 }
 
 
-void encodeAddCommand(id<MTLComputeCommandEncoder> computeEncoder,
+
+void encodeCompCommand(id<MTLComputeCommandEncoder> computeEncoder,
                       id<MTLComputePipelineState> pipelineState,
                       id<MTLBuffer> bufferA,
                       id<MTLBuffer> bufferB,
@@ -70,20 +78,17 @@ void encodeAddCommand(id<MTLComputeCommandEncoder> computeEncoder,
 
 
 __attribute__((visibility("default")))
-bool computeAddWithAllocatedResultBuffer(struct metal_config* metal_config, struct metal_vector* bufferA, struct metal_vector* bufferB, struct metal_vector* bufferResult) {
+bool computeWithAllocatedResultBuffer(struct metal_config* metal_config, struct metal_vector* bufferA, struct metal_vector* bufferB, struct metal_vector* bufferResult, metal_operation operation) {
 
     NSError* error = nil;
 
     id<MTLDevice>  _mDevice = metal_config->device;
     id<MTLLibrary>  _mLibrary = metal_config->library;
 
-    // id<MTLDevice>  _mDevice       = (__bridge id<MTLDevice>)device;
-    // id<MTLLibrary> _mLibrary      = (__bridge id<MTLLibrary>)library;
     id<MTLBuffer>  _mBufferA      = bufferA->data_ptr;
     id<MTLBuffer>  _mBufferB      = bufferB->data_ptr;
     id<MTLBuffer>  _mBufferResult = bufferResult->data_ptr;
     size_t bufferSize = bufferA->data_len;
-    // id<MTLBuffer>  _mBufferResult = [_mDevice newBufferWithLength:bufferSize options:MTLResourceStorageModeShared];
 
     // Validate casted objects
     if (!_mDevice || !_mLibrary || !_mBufferA || !_mBufferB || !_mBufferResult) {
@@ -93,17 +98,24 @@ bool computeAddWithAllocatedResultBuffer(struct metal_config* metal_config, stru
 
 
 
+    id<MTLFunction> compFunction;
+    if (operation == METAL_ADD) {
+        compFunction = [_mLibrary newFunctionWithName:@"add_arrays"];
+    } else if (operation == METAL_MULT) {
+        compFunction = [_mLibrary newFunctionWithName:@"mult_arrays"];
+    } else {
+        @throw [NSException exceptionWithName:@"MyException" reason:@"Unknown operation. Use one of: ADD MULT." userInfo:nil];
+    }
     
-    id<MTLFunction> addFunction = [_mLibrary newFunctionWithName:@"add_arrays"];
-    if (addFunction == nil)
+    if (compFunction == nil)
     {
         NSLog(@"Failed to find the adder function.");
         return false;
     }
 
     // Create a compute pipeline state object.
-    id<MTLComputePipelineState> _mAddFunctionPSO = [_mDevice newComputePipelineStateWithFunction: addFunction error:&error];
-    if (_mAddFunctionPSO == nil)
+    id<MTLComputePipelineState> _mCompFunctionPSO = [_mDevice newComputePipelineStateWithFunction: compFunction error:&error];
+    if (_mCompFunctionPSO == nil)
     {
         //  If the Metal API validation is enabled, you can find out more information about what
         //  went wrong.  (Metal API validation is enabled by default when a debug build is run
@@ -128,7 +140,7 @@ bool computeAddWithAllocatedResultBuffer(struct metal_config* metal_config, stru
     id<MTLComputeCommandEncoder> _mComputeEncoder = [_mCommandBuffer computeCommandEncoder];
     assert(_mComputeEncoder != nil);
 
-    encodeAddCommand(_mComputeEncoder, _mAddFunctionPSO, _mBufferA, _mBufferB, _mBufferResult, bufferSize);
+    encodeCompCommand(_mComputeEncoder, _mCompFunctionPSO, _mBufferA, _mBufferB, _mBufferResult, bufferSize);
 
     // End the compute pass.
     [_mComputeEncoder endEncoding];
@@ -155,7 +167,7 @@ bool computeAddWithAllocatedResultBuffer(struct metal_config* metal_config, stru
 
 
 __attribute__((visibility("default")))
-struct metal_vector computeAdd(struct metal_config* metal_config, struct metal_vector* bufferA, struct metal_vector* bufferB) {
+struct metal_vector compute(struct metal_config* metal_config, struct metal_vector* bufferA, struct metal_vector* bufferB, metal_operation operation) {
 
     NSError* error = nil;
 
@@ -181,8 +193,6 @@ struct metal_vector computeAdd(struct metal_config* metal_config, struct metal_v
     id<MTLDevice>  _mDevice = bufferA->metal_config.device;
     id<MTLLibrary>  _mLibrary = bufferA->metal_config.library;
 
-    // id<MTLDevice>  _mDevice = metal_config->device;
-    // id<MTLLibrary>  _mLibrary = metal_config->library;
 
     if (bufferA->data_ptr == NULL) {
         @throw [NSException exceptionWithName:@"MyException" reason:@"First vector is NULL." userInfo:nil];
@@ -206,17 +216,23 @@ struct metal_vector computeAdd(struct metal_config* metal_config, struct metal_v
     }
 
 
-
+    id<MTLFunction> compFunction;
+    if (operation == METAL_ADD) {
+        compFunction = [_mLibrary newFunctionWithName:@"add_arrays"];
+    } else if (operation == METAL_MULT) {
+        compFunction = [_mLibrary newFunctionWithName:@"mult_arrays"];
+    } else {
+        @throw [NSException exceptionWithName:@"MyException" reason:@"Unknown operation. Use one of: ADD MULT." userInfo:nil];
+    }
     
-    id<MTLFunction> addFunction = [_mLibrary newFunctionWithName:@"add_arrays"];
-    if (addFunction == nil)
+    if (compFunction == nil)
     {
-        NSLog(@"Failed to find the adder function.");
+        NSLog(@"Failed to find the function.");
     }
 
     // Create a compute pipeline state object.
-    id<MTLComputePipelineState> _mAddFunctionPSO = [_mDevice newComputePipelineStateWithFunction: addFunction error:&error];
-    if (_mAddFunctionPSO == nil)
+    id<MTLComputePipelineState> _mCompFunctionPSO = [_mDevice newComputePipelineStateWithFunction: compFunction error:&error];
+    if (_mCompFunctionPSO == nil)
     {
         //  If the Metal API validation is enabled, you can find out more information about what
         //  went wrong.  (Metal API validation is enabled by default when a debug build is run
@@ -239,7 +255,7 @@ struct metal_vector computeAdd(struct metal_config* metal_config, struct metal_v
     id<MTLComputeCommandEncoder> _mComputeEncoder = [_mCommandBuffer computeCommandEncoder];
     assert(_mComputeEncoder != nil);
 
-    encodeAddCommand(_mComputeEncoder, _mAddFunctionPSO, _mBufferA, _mBufferB, _mBufferResult, bufferSize);
+    encodeCompCommand(_mComputeEncoder, _mCompFunctionPSO, _mBufferA, _mBufferB, _mBufferResult, bufferSize);
 
     // End the compute pass.
     [_mComputeEncoder endEncoding];
@@ -267,10 +283,6 @@ struct metal_vector computeAdd(struct metal_config* metal_config, struct metal_v
 
     return *bufferResult;
 }
-
-
-
-
 
 
 

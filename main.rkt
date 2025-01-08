@@ -28,6 +28,16 @@
                            [else (error 'metal_data_type "unknown enum value")]))))
 
 
+(define _metal_operation
+  (_enum '(METAL_ADD = 0
+           METAL_MULT = 1)
+         _uint32
+         #:unknown (lambda (x)
+                     (cond [(eq? x 'METAL_ADD) 0]
+                           [(eq? x 'METAL_MULT) 1]
+                           [else (error 'metal_operation "unknown enum value")]))))
+
+
 (define-cstruct _metal_config
                 ([device        _pointer]
                  [library       _pointer]))
@@ -80,35 +90,50 @@
 
 
 
-(define-metal compute-add-with-allocated-result-ffi
+(define-metal compute-with-allocated-result-ffi
   (_fun _pointer
         _pointer
         _pointer
         _pointer
+        _metal_operation
         -> _bool)
-  #:c-id computeAddWithAllocatedResultBuffer)
+  #:c-id computeWithAllocatedResultBuffer)
 
 (define (compute-add-with-allocated-result metal-config mvector-A mvector-B mvector-Result)
-  (let ([result (compute-add-with-allocated-result-ffi metal-config mvector-A mvector-B mvector-Result)])
+  (let ([result (compute-with-allocated-result-ffi metal-config mvector-A mvector-B mvector-Result 'METAL_ADD)])
     (if (not result)
-        (error "ComputeAdd returned error.")
+        (error "Compute returned error.")
+        result)))
+
+(define (compute-mult-with-allocated-result metal-config mvector-A mvector-B mvector-Result)
+  (let ([result (compute-with-allocated-result-ffi metal-config mvector-A mvector-B mvector-Result 'METAL_MULT)])
+    (if (not result)
+        (error "Compute returned error.")
         result)))
 
 
-(define-metal compute-add-ffi
+
+
+
+(define-metal compute-ffi
   (_fun _pointer
         _pointer
         _pointer
+        _metal_operation
         -> _metal_vector)
-  #:c-id computeAdd)
+  #:c-id compute)
 
 (define (compute-add metal-config mvector-A mvector-B)
-  (let ([result (compute-add-ffi metal-config mvector-A mvector-B)])
+  (let ([result (compute-ffi metal-config mvector-A mvector-B 'METAL_ADD)])
     (if (not result)
-        (error "ComputeAdd returned error.")
+        (error "compute returned error.")
         result)))
 
-
+(define (compute-mult metal-config mvector-A mvector-B)
+  (let ([result (compute-ffi metal-config mvector-A mvector-B 'METAL_MULT)])
+    (if (not result)
+        (error "compute returned error.")
+        result)))
 
 
 
@@ -216,7 +241,7 @@
                                  (list 1.0 2.0 3.0 4.0)))
 
 
-(define mvector-r2 (compute-add metal-config mvector-C mvector-D))
+(define mvector-r2 (compute-mult metal-config mvector-C mvector-D))
 
 
 (define r2 (mvector->list mvector-r2))
