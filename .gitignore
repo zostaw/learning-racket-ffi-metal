@@ -22,3 +22,5 @@ xcuserdata/
 
 DerivedData
 Build
+compiled/
+test.rkt
