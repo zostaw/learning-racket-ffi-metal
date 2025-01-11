@@ -21,5 +21,5 @@ kernel void add_matrices(device const float* A [[buffer(0)]],
                          constant uint &rows_B [[buffer(5)]],
                          constant uint &cols_B [[buffer(6)]],
                          uint2 tid [[thread_position_in_grid]]) {
-    C[tid.x * cols_A + tid.y] = A[tid.x * cols_A + tid.y] + B[tid.x * cols_A + tid.y];
+    C[tid.y * cols_A + tid.x] = A[tid.y * cols_A + tid.x] + B[tid.y * cols_A + tid.x];
 }

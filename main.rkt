@@ -232,41 +232,41 @@
 
 
 
-
+(module+ test
 ;; With result buffer preallocation
-(let ([metal-config (initialize-metal metallib-path)])
-  (define mvector-A (list->mvector metal-config 
-                                   (list 1.0 2.0 3.0 4.0)))
-  (define mvector-B (list->mvector metal-config 
-                                   (list 1.0 2.0 3.0 4.0)))
-
-
-  (define mvector-r1 (list->mvector metal-config 
-                                    (make-list 4 0.0)))
-  (void (compute-add-with-allocated-result metal-config mvector-A mvector-B mvector-r1))
-
-
-  (define r1 (mvector->list mvector-r1))
-  (printf "Results:  ~a\n" r1))
-
+  (let ([metal-config (initialize-metal metallib-path)])
+    (define mvector-A (list->mvector metal-config 
+                                     (list 1.0 2.0 3.0 4.0)))
+    (define mvector-B (list->mvector metal-config 
+                                     (list 1.0 2.0 3.0 4.0)))
+  
+    (define mvector-r1 (list->mvector metal-config 
+                                      (make-list 4 0.0)))
+    (void (compute-add-with-allocated-result metal-config mvector-A mvector-B mvector-r1))
+  
+    (define r1 (mvector->list mvector-r1))
+    (when (not (equal? r1
+                       '(2.0 4.0 6.0 8.0)))
+      (error "[TEST] compute-add-with-allocated-result failed."))))
 
 
 
 
 ;; Without prealocation
 
-(let ([metal-config (initialize-metal metallib-path)])
-  (define mvector-C (list->mvector metal-config
-                                   (list 1.0 2.0 3.0 4.0)))
-  (define mvector-D (list->mvector metal-config 
-                                   (list 1.0 2.0 3.0 4.0)))
+(module+ test
+  (let ([metal-config (initialize-metal metallib-path)])
+    (define mvector-C (list->mvector metal-config
+                                     (list 1.0 2.0 3.0 4.0)))
+    (define mvector-D (list->mvector metal-config 
+                                     (list 1.0 2.0 3.0 4.0)))
 
+    (define mvector-r2 (compute-mul metal-config mvector-C mvector-D))
 
-  (define mvector-r2 (compute-mul metal-config mvector-C mvector-D))
-
-
-  (define r2 (mvector->list mvector-r2))
-  (printf "Results:  ~a\n" r2))
+    (define r2 (mvector->list mvector-r2))
+    (when (not (equal? r2
+                       '(1.0 4.0 9.0 16.0)))
+      (error "[TEST] compute-mul failed."))))
 
 
 
@@ -289,6 +289,22 @@
                  [metal_config                  _metal_config]) ; metal_config 16 bytes
                 #:alignment 8)
 
+; metal_matrix test
+(module+ test
+  (let ([metal-config (initialize-metal metallib-path)])
+    (define A (list->mmatrix metal-config '((1 2 3 4) (4 5 6 4) (7 8 9 4))))
+    (when 
+      (not 
+        (and 
+          (cpointer? (metal_matrix-data_ptr A))
+          (equal? 12 (metal_matrix-data_len A))
+          (equal? 'METAL_FLOAT (metal_matrix-data_type A))
+          (equal? 3 (metal_matrix-data_rows A))
+          (equal? 4 (metal_matrix-data_cols A))
+          (cpointer? (metal_matrix-data_rows_ptr A))
+          (cpointer? (metal_matrix-data_cols_ptr A))
+          (cpointer? (metal_matrix-metal_config A))))
+      (error "[TEST] metal_matrix struct failed. One of the fields didn't return expected value/type."))))
 
 (define (mmatrix->ptr m-matrix)
   (metal_matrix-data_ptr m-matrix))
@@ -328,6 +344,11 @@
         -> _pointer)
   #:c-id getCFloatMatrix)
 
+(define-metal int32-mmatrix->cvector-ffi
+  (_fun _metal_matrix
+        -> _pointer)
+  #:c-id getCInt32Matrix)
+
 
 (define (list->2d-list lst cols)
     (define (part lst)
@@ -347,27 +368,20 @@
 
 
 (define (mmatrix->list m-matrix)
-  (let ([data_type (let ([dtype (metal_matrix-data_type m-matrix)])
-                     (match dtype
+ (let ([dtype (metal_matrix-data_type m-matrix)])
+   (let ([data_type (match dtype
                        ['METAL_FLOAT _float]
-                       ['METAL_INT _int32]
-                       [_ (error (format "type ~a not supported" dtype))]))]
+                       ['METAL_INT32 _int32]
+                       [_ (error (format "type ~a not supported" dtype))])]
         [cols (metal_matrix-data_cols m-matrix)]
         [data_length (metal_matrix-data_len m-matrix)])
     (list->2d-list
       (cvector->list 
-        (make-cvector* (float-mmatrix->cvector-ffi m-matrix) data_type data_length)) cols)))
-
-
-;; (define-metal int32-mmatrix->cvector-ffi
-;;   (_fun _metal_matrix
-;;         [c-array : _pointer]
-;;         [_int = (cvector-length c-array)]
-;;         [rows : _size]
-;;         [cols : _size]
-;;         -> [res : _pointer]
-;;         -> (values c-array rows cols res))
-;;   #:c-id getCInt32Matrix)
+        (make-cvector* ((match dtype
+                          ['METAL_FLOAT float-mmatrix->cvector-ffi]
+                          ['METAL_INT32 int32-mmatrix->cvector-ffi]
+                          [_ (error "Unsupported m-type")])
+                        m-matrix) data_type data_length)) cols))))
 
 
 (define (cvector->mmatrix metal-config c-vector cols)
@@ -406,6 +420,21 @@
             ['METAL_INT32 (cvector->mmatrix metal-config (list->cvector (map inexact->exact (flatten lst)) _int32) cols)]
             [_ (error "Unexpected data-type in list->mvector definiton")]))]))
 
+(module+ test
+  (let ([metal-config (initialize-metal metallib-path)])
+    (when (not (equal? (mmatrix->list (list->mmatrix metal-config '((1 2 3 4) (4 5 6 4) (7 8 9 4))))
+                       '((1.0 2.0 3.0 4.0) (4.0 5.0 6.0 4.0) (7.0 8.0 9.0 4.0))))
+      (error "[TEST] mmatrix->list ... list->mmatrix is inconsistent (version with int->(default)float). Test failed."))))
+
+;; (module+ test
+;;   (let ([metal-config (initialize-metal metallib-path)])
+;;     (println (metal_matrix-data_type (list->mmatrix metal-config '((1.0 2.0 3.0 4.0) (4.0 5.0 6.0 4.0) (7.0 8.0 9.0 4.0)) #:data-type 'METAL_INT32)))
+;;     (when (not (equal? (mmatrix->list (list->mmatrix metal-config '((1.0 2.0 3.0 4.0) (4.0 5.0 6.0 4.0) (7.0 8.0 9.0 4.0)) #:data-type 'METAL_INT32))
+;;                        '((1 2 3 4) (4 5 6 4) (7 8 9 4))))
+;;       (error "[TEST] mmatrix->list ... list->mmatrix is inconsistent (version with float->int). Test failed."))))
+
+
+
 (define-metal create-mmatrix
   (_fun _pointer ; metal_config
         [vec : _cvector]
@@ -429,51 +458,35 @@
 
 
 
+
 (let ([metal-config (initialize-metal metallib-path)])
-  (printf "\n\n\n")
-  #;(define mvector-A (list->mvector metal-config 
-                                     (list 1.0 2.0 3.0 4.0)))
+  (printf "\nMAT-ADD\n\n")
 
-  
-    (define A (list->mmatrix metal-config '((1 2 3 4) (4 5 6 4) (7 8 9 4))))
-    (define B (list->mmatrix metal-config '((1 2 3 4) (4 5 6 4) (7 8 9 4))))
+  (define A (list->mmatrix metal-config '((1 2 3 4) (4 5 6 4) (7 8 9 4))))
+  (define B (list->mmatrix metal-config '((1 2 3 4) (4 5 6 4) (7 8 9 4))))
 
 
+  (define C (compute-mat-add metal-config A B))
+  (define C-list (mmatrix->list C))
 
 
+  (println C-list))
 
 
+(let ([metal-config (initialize-metal metallib-path)])
+  (printf "\nMAT-MUL\n\n")
+
+  (define A (list->mmatrix metal-config '((1 2 3 4) 
+                                          (4 5 6 4)
+                                          (7 8 9 4))))
+  (define B (list->mmatrix metal-config '((1 2 3 4 5)
+                                          (4 5 6 4 5)
+                                          (4.5 5.5 6.5 4.5 5.5)
+                                          (7 8 9 4 8))))
 
 
-    (displayln "")
-    (displayln "")
-    (println (metal_matrix-data_ptr A))
-    (println (metal_matrix-data_len A))
-    (println (metal_matrix-data_type A))
-    (println (metal_matrix-data_rows A))
-    (println (metal_matrix-data_cols A))
-    (println (metal_matrix-data_rows_ptr A))
-    (println (metal_matrix-data_cols_ptr A))
-    (println (metal_matrix-metal_config A))
-    (displayln "")
-    (displayln "")
-    (println (metal_matrix-data_ptr B))
-    (println (metal_matrix-data_len B))
-    (println (metal_matrix-data_type B))
-    (println (metal_matrix-data_rows B))
-    (println (metal_matrix-data_cols B))
-    (println (metal_matrix-data_rows_ptr B))
-    (println (metal_matrix-data_cols_ptr B))
-    (println (metal_matrix-metal_config B))
-    (displayln "")
-    (displayln "")
+  (define C (compute-mat-mul metal-config A B))
+  (define C-list (mmatrix->list C))
 
 
-
-    (define C (compute-mat-add metal-config A B))
-    (define C-list (mmatrix->list C))
-
-    (println (mmatrix->list (list->mmatrix metal-config '((1 2 3 4) (4 5 6 4) (7 8 9 4)))))
-
-    (println C-list))
-
+  (println C-list))

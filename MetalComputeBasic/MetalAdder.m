@@ -433,7 +433,8 @@ struct metal_matrix computeMatrix(struct metal_config* metal_config,
             @throw [NSException exceptionWithName:@"MyException" reason:@"matrices are different sizes." userInfo:nil];
         }
     } else if (operation == METAL_MAT_MUL) {
-        if (dataRowsA != dataColsB) {
+        if (bufferA->data_cols != bufferB->data_rows) {
+            //printf("A rows %zu, cols %zu\nB rows %zu, cols %zu\n\n", bufferA->data_rows, bufferA->data_cols, bufferB->data_rows, bufferB->data_cols);
             @throw [NSException exceptionWithName:@"MyException" reason:@"matrices have different common dimension for matmul." userInfo:nil];
         }
     } else {
@@ -472,12 +473,13 @@ struct metal_matrix computeMatrix(struct metal_config* metal_config,
     size_t resultBufferSize;
     if (operation == METAL_MAT_ADD) {
         rows = bufferA->data_rows;
-        cols = bufferA->data_rows;
+        cols = bufferA->data_cols;
         resultBufferSize = bufferA->data_len;
     } else if (operation == METAL_MAT_MUL) {
         rows = bufferA->data_rows;
         cols = bufferB->data_cols;
-        resultBufferSize = *dataRowsA * *dataColsB;
+        //resultBufferSize = *dataRowsA * *dataColsB;
+        resultBufferSize = rows * cols;
     } else {
         @throw [NSException exceptionWithName:@"MyException" reason:@"Operation not supported." userInfo:nil];
     }
@@ -506,7 +508,7 @@ struct metal_matrix computeMatrix(struct metal_config* metal_config,
     if (operation == METAL_MAT_ADD) {
         compFunction = [_mLibrary newFunctionWithName:@"add_matrices"];
     } else if (operation == METAL_MAT_MUL) {
-        compFunction = [_mLibrary newFunctionWithName:@"matmul_matrices"];
+        compFunction = [_mLibrary newFunctionWithName:@"matmul"];
     } else {
         @throw [NSException exceptionWithName:@"MyException" reason:@"Unknown operation. Use one of: METAL_MAT_ADD METAL_MAT_MUL." userInfo:nil];
     }
@@ -532,7 +534,7 @@ struct metal_matrix computeMatrix(struct metal_config* metal_config,
         NSLog(@"Failed to find the command queue.");
     }
 
-    NSLog(@"Sending:");
+    //NSLog(@"Sending:");
     // Create a command buffer to hold commands.
     id<MTLCommandBuffer> _mCommandBuffer = [_mCommandQueue commandBuffer];
     assert(_mCommandBuffer != nil);
@@ -758,11 +760,6 @@ struct metal_matrix createMetalMatrix(struct metal_config* metal_config,
 
     id<MTLDevice>  mDevice = metal_config->device;
     struct metal_matrix* mat = malloc(sizeof(struct metal_matrix));
-
-    printf("Size of struct metal_matrix: %zu\n", sizeof(struct metal_matrix));
-    printf("Size of struct metal_config-: %zu\n", sizeof(struct metal_config));
-    printf("Size of id<MTLBuffer>: %zu\n", sizeof(id<MTLBuffer>));
-    printf("Size of enum metal_data_type: %zu\n", sizeof(metal_data_type));
 
     if (!mat) {
         @throw [NSException exceptionWithName:@"MyException" reason:@"Matrix could not be allocated." userInfo:nil];

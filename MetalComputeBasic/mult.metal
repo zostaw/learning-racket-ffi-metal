@@ -20,9 +20,10 @@ kernel void matmul(device const float* A [[buffer(0)]],
                    constant uint &cols_B [[buffer(6)]],
                    uint2 tid [[thread_position_in_grid]]) {
     float result = 0.0f;
-    for (uint i = 0; i < rows_A; i++) {
-        result += A[tid.x * rows_A + i] * B[i * cols_A * tid.y];
+    for (uint i = 0; i < cols_A; i++) {
+        result += A[tid.y * rows_A + i] * B[i * cols_A * tid.y];
+        result += A[tid.y * cols_A + i] * B[tid.x + cols_B * i];
     }
-    C[tid.x * cols_A + tid.y] = result;
+    C[tid.y * cols_A + tid.x] = result;
 }
 
