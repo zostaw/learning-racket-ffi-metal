@@ -30,11 +30,15 @@
 
 (define _metal_operation
   (_enum '(METAL_ADD = 0
-           METAL_MULT = 1)
+           METAL_MUL = 1
+           METAL_MAT_ADD = 2
+           METAL_MAT_MUL = 3)
          _uint32
          #:unknown (lambda (x)
                      (cond [(eq? x 'METAL_ADD) 0]
-                           [(eq? x 'METAL_MULT) 1]
+                           [(eq? x 'METAL_MUL) 1]
+                           [(eq? x 'METAL_MAT_ADD) 2]
+                           [(eq? x 'METAL_MAT_MUL) 3]
                            [else (error 'metal_operation "unknown enum value")]))))
 
 
@@ -47,6 +51,28 @@
 (define (metal_config->library metal-config)
   (ptr-ref metal-config _pointer 1))
 
+
+
+#| Initialization functions |#
+(define-metal create-metal-device
+  (_fun _string -> _pointer)
+  #:c-id createMetalDevice)
+
+(define-metal initialize-metal
+  (_fun _string -> _metal_config)
+  #:c-id initializeMetal)
+
+
+(define-metal create-metal-library
+  (_fun _pointer _string -> _pointer)
+  #:c-id createMetalLibrary)
+
+
+
+
+#| Vector
+   All stuff vector related.
+|#
 (define-cstruct _metal_vector
                 ([data_ptr                      _pointer]
                  [data_len                      _size]
@@ -73,18 +99,7 @@
 
 
 
-(define-metal create-metal-device
-  (_fun _string -> _pointer)
-  #:c-id createMetalDevice)
 
-(define-metal initialize-metal
-  (_fun _string -> _metal_config)
-  #:c-id initializeMetal)
-
-
-(define-metal create-metal-library
-  (_fun _pointer _string -> _pointer)
-  #:c-id createMetalLibrary)
 
 
 
@@ -105,8 +120,8 @@
         (error "compute returned error.")
         result)))
 
-(define (compute-mult-with-allocated-result metal-config mvector-A mvector-B mvector-Result)
-  (let ([result (compute-with-allocated-result-ffi metal-config mvector-A mvector-B mvector-Result 'METAL_MULT)])
+(define (compute-mul-with-allocated-result metal-config mvector-A mvector-B mvector-Result)
+  (let ([result (compute-with-allocated-result-ffi metal-config mvector-A mvector-B mvector-Result 'METAL_MUL)])
     (if (not result)
         (error "compute returned error.")
         result)))
@@ -129,8 +144,8 @@
         (error "compute returned error.")
         result)))
 
-(define (compute-mult metal-config mvector-A mvector-B)
-  (let ([result (compute-ffi metal-config mvector-A mvector-B 'METAL_MULT)])
+(define (compute-mul metal-config mvector-A mvector-B)
+  (let ([result (compute-ffi metal-config mvector-A mvector-B 'METAL_MUL)])
     (if (not result)
         (error "compute returned error.")
         result)))
@@ -241,15 +256,224 @@
 ;; Without prealocation
 
 (let ([metal-config (initialize-metal metallib-path)])
-  (define mvector-C (list->mvector metal-config 
+  (define mvector-C (list->mvector metal-config
                                    (list 1.0 2.0 3.0 4.0)))
   (define mvector-D (list->mvector metal-config 
                                    (list 1.0 2.0 3.0 4.0)))
 
 
-  (define mvector-r2 (compute-mult metal-config mvector-C mvector-D))
+  (define mvector-r2 (compute-mul metal-config mvector-C mvector-D))
 
 
   (define r2 (mvector->list mvector-r2))
   (printf "Results:  ~a\n" r2))
+
+
+
+
+
+
+
+
+#| Matrix
+   All stuff matrix related.
+|#
+(define-cstruct _metal_matrix
+                ([data_ptr                      _pointer] ; id<MTLBuffer> 8 bytes
+                 [data_len                      _size] ; 8 bytes
+                 [data_rows                     _size] ; 8 bytes
+                 [data_cols                     _size] ; 8 bytes
+                 [data_rows_ptr                 _pointer] ; id<MTLBuffer> 8 bytes
+                 [data_cols_ptr                 _pointer] ; id<MTLBuffer> 8 bytes
+                 [data_type                     _metal_data_type #:offset 12] ; enum 4 bytes
+                 [metal_config                  _metal_config]) ; metal_config 16 bytes
+                #:alignment 8)
+
+
+(define (mmatrix->ptr m-matrix)
+  (metal_matrix-data_ptr m-matrix))
+(define (mmatrix->length m-matrix)
+  (metal_matrix-data_len m-matrix))
+
+
+
+
+;; Compute functions
+(define-metal compute-mat-ffi
+  (_fun _pointer
+        _pointer
+        _pointer
+        _metal_operation
+        -> _metal_matrix)
+  #:c-id computeMatrix)
+
+(define (compute-mat-add metal-config mmatrix-A mmatrix-B)
+  (let ([result (compute-mat-ffi metal-config mmatrix-A mmatrix-B 'METAL_MAT_ADD)])
+    (if (not result)
+        (error "compute returned error.")
+        result)))
+
+(define (compute-mat-mul metal-config mmatrix-A mmatrix-B)
+  (let ([result (compute-mat-ffi metal-config mmatrix-A mmatrix-B 'METAL_MAT_MUL)])
+    (if (not result)
+        (error "compute returned error.")
+        result)))
+
+
+
+
+;; Create matrix
+(define-metal float-mmatrix->cvector-ffi
+  (_fun _metal_matrix
+        -> _pointer)
+  #:c-id getCFloatMatrix)
+
+
+(define (list->2d-list lst cols)
+    (define (part lst)
+        (cond
+          [(empty? lst) '()]
+          [else (cons (take lst cols) (part (drop lst cols)))]))
+    (if (not (equal? 0 (remainder (length lst) cols)))
+        (error "Tried to make 2d list from 1d, but dimensions are not correct")
+        (part lst)))
+;; Test
+(module+ test
+    (when (not (equal? (list->2d-list 
+                          '(1 2 3 4 5 6 7 8 9) 3) 
+                       '((1 2 3) (4 5 6) (7 8 9))))
+      (error "list->2d-list test failed")))
+
+
+
+(define (mmatrix->list m-matrix)
+  (let ([data_type (let ([dtype (metal_matrix-data_type m-matrix)])
+                     (match dtype
+                       ['METAL_FLOAT _float]
+                       ['METAL_INT _int32]
+                       [_ (error (format "type ~a not supported" dtype))]))]
+        [cols (metal_matrix-data_cols m-matrix)]
+        [data_length (metal_matrix-data_len m-matrix)])
+    (list->2d-list
+      (cvector->list 
+        (make-cvector* (float-mmatrix->cvector-ffi m-matrix) data_type data_length)) cols)))
+
+
+;; (define-metal int32-mmatrix->cvector-ffi
+;;   (_fun _metal_matrix
+;;         [c-array : _pointer]
+;;         [_int = (cvector-length c-array)]
+;;         [rows : _size]
+;;         [cols : _size]
+;;         -> [res : _pointer]
+;;         -> (values c-array rows cols res))
+;;   #:c-id getCInt32Matrix)
+
+
+(define (cvector->mmatrix metal-config c-vector cols)
+  (let ([data-type (match (ctype->layout (cvector-type c-vector))
+                     ['float 'METAL_FLOAT]
+                     ['int32 'METAL_INT32]
+                     [_ (error
+                         (format "Unsupported cvector type \"~a\" in cvector->mmatrix definiton. Have to be one of: 'float 'int32"
+                                 (ctype->layout (cvector-type c-vector))))])]
+        [c-vec-length (cvector-length c-vector)])
+    (if (not (equal? 0 (remainder c-vec-length cols)))
+        (error (format "Cannot transform cvector of length ~a into vector with col len of ~a" c-vec-length cols))
+        (create-mmatrix metal-config
+                        c-vector
+                        (/ c-vec-length cols)
+                        cols
+                        data-type))))
+
+
+
+(define (list->mmatrix metal-config lst #:data-type [data-type 'METAL_FLOAT])
+  (cond
+    [(not (list? lst)) (error "Provided lst argument is not a list.")]
+    [(null? lst) #f] ; we dont' crash, but we return "None"
+    [(not (list? (car lst))) (error "Matrix is expected to be list of lists, but first element is not.")]
+    [(let ([sublist-len (length (car lst))])
+       (foldl (lambda (sublist acc) (or acc 
+                                          (not (list? sublist))
+                                          (not (equal? sublist-len (length sublist)))))
+              #f 
+              lst))
+       (error "Matrix is expected to be list of equal sized lists, but it isn't.")]
+  [else (let ([cols (length (car lst))])
+          (match data-type
+            ['METAL_FLOAT (cvector->mmatrix metal-config (list->cvector (map exact->inexact (flatten lst)) _float) cols)]
+            ['METAL_INT32 (cvector->mmatrix metal-config (list->cvector (map inexact->exact (flatten lst)) _int32) cols)]
+            [_ (error "Unexpected data-type in list->mvector definiton")]))]))
+
+(define-metal create-mmatrix
+  (_fun _pointer ; metal_config
+        [vec : _cvector]
+        [_int = (cvector-length vec)]
+        _size ; rows
+        _size ; cols
+        _metal_data_type   ; type
+        -> _metal_matrix)
+  #:c-id createMetalMatrix)
+
+;; Matrix type transitions
+
+
+
+
+
+
+
+
+
+
+
+
+(let ([metal-config (initialize-metal metallib-path)])
+  (printf "\n\n\n")
+  #;(define mvector-A (list->mvector metal-config 
+                                     (list 1.0 2.0 3.0 4.0)))
+
+  
+    (define A (list->mmatrix metal-config '((1 2 3 4) (4 5 6 4) (7 8 9 4))))
+    (define B (list->mmatrix metal-config '((1 2 3 4) (4 5 6 4) (7 8 9 4))))
+
+
+
+
+
+
+
+
+    (displayln "")
+    (displayln "")
+    (println (metal_matrix-data_ptr A))
+    (println (metal_matrix-data_len A))
+    (println (metal_matrix-data_type A))
+    (println (metal_matrix-data_rows A))
+    (println (metal_matrix-data_cols A))
+    (println (metal_matrix-data_rows_ptr A))
+    (println (metal_matrix-data_cols_ptr A))
+    (println (metal_matrix-metal_config A))
+    (displayln "")
+    (displayln "")
+    (println (metal_matrix-data_ptr B))
+    (println (metal_matrix-data_len B))
+    (println (metal_matrix-data_type B))
+    (println (metal_matrix-data_rows B))
+    (println (metal_matrix-data_cols B))
+    (println (metal_matrix-data_rows_ptr B))
+    (println (metal_matrix-data_cols_ptr B))
+    (println (metal_matrix-metal_config B))
+    (displayln "")
+    (displayln "")
+
+
+
+    (define C (compute-mat-add metal-config A B))
+    (define C-list (mmatrix->list C))
+
+    (println (mmatrix->list (list->mmatrix metal-config '((1 2 3 4) (4 5 6 4) (7 8 9 4)))))
+
+    (println C-list))
 
