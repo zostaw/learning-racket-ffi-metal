@@ -1,6 +1,66 @@
-# Performing Calculations on a GPU
+# Racket Calculations on a Metal
 
-Bindings for Metal
+It's my FFI learning playground.  
+
+## Overview
+
+I written 4 simple kernels:
+- add_arrays
+- mult_arrays
+- add_matrices
+- matmul
+
+There are no optimizations, really, just simple functions.  
+
+I tried to extract the minimum that is required to run kernel computations from Racket.  
+The most important pieces are:  
+
+#### Devices and Library
+
+Metal requires the Buffers to be associated with device and library.  
+Below structure keeps the reference, it's used with pretty much every command.  
+
+**_metal-config**  
+A struct that holds device and library.  
+Almost all other functions take metal-config as an argument.  
+
+#### Vectors
+
+**_metal_vector**
+A struct that contains Metal Buffer pointer as well as other informations about the metal vector.  
+See source code and take a look at *[metal-ffi.rkt](./metal-ffi.rkt)* (or [MetalAdder.m](./MetalComputeBasic/MetalAdder.m)) to see how it's defined.  
+
+**list->mvector | mvector->list**  
+Transition lists similar to those you might know from racket (i.e. list->vector). But they additionally take metal-config as first argument and they require the list to be a flat list.  
+It's the first building block for the communication with Metal, it allocates Metal Buffer with shape of the list.  
+
+**compute-add | compute-mul**
+Vector operations. They take 2 *metal_vector*'s and return a new one.  
+You can see in [examples.rkt](./examples.rkt) how to use them.
+
+
+#### Matrices
+
+**_metal_matrix**
+A struct that contains Metal Buffer pointer as well as other informations about the metal matrix.  
+See source code and take a look at *[metal-ffi.rkt](./metal-ffi.rkt)* (or [MetalAdder.m](./MetalComputeBasic/MetalAdder.m)) to see how it's defined.  
+It's pretty much the same as *_metal_vector*, but it also contains information about number of rows and columns.  
+
+**list->mmatix | mmatrix->list**  
+Just like *list->mvector* and *mvector->list*, but with matrix in mind.  
+It requires the list to be 2D of course.  
+
+**compute-mat-add | compute-mat-mul**
+Matrix operations. They take 2 *metal_vector*'s and return a new one.  
+You can see in [examples.rkt](./examples.rkt) how to use them.
+
+
+## Run examples
+
+```
+racket examples.rkt
+```
+
 
 ## Build
 
@@ -13,9 +73,50 @@ It will build the two files under *Build/Products/Debug/*:
 - *default.metallib*
 - *libMetalComputeBasic* (dylib)
 
-## Run
+## Racket FFI
+
+Those are the main ffi bindings to my functions.
+```
+racket ./metal-ffi.rkt
+```
+
+
+## Tests
 
 ```
-racket ./main.rkt
+raco test test.rkt
 ```
 
+
+## Benchmarks
+
+To run execute that:
+
+```
+racket -l racket/base -e '(require (submod "benchmark.rkt" benchmark))'
+```
+
+Some example results:
+
+>       Flomat: 195.611083984375
+>       Vector: 181.384033203125
+>       Metal: 30.556884765625
+
+>       Flomat: 176.68701171875
+>       Vector: 177.373046875
+>       Metal: 48.281982421875
+
+>       Flomat: 170.9189453125
+>       Vector: 170.1669921875
+>       Metal: 31.268798828125
+
+>       Flomat: 179.22509765625
+>       Vector: 167.153076171875
+>       Metal: 52.55712890625
+
+>       Flomat: 173.863037109375
+>       Vector: 168.3330078125
+>       Metal: 27.2109375
+
+They're usually around 3-6x improvements. One might expect that to be orders of magnitude better.  
+I suspect it's because my kernels aren't well optimized. I just use a really simple one for multiplication.

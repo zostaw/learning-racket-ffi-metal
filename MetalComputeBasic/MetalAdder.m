@@ -179,7 +179,7 @@ bool computeWithAllocatedResultBuffer(struct metal_config* metal_config,
         return false;
     }
 
-    NSLog(@"Sending:");
+    //NSLog(@"Sending:");
     // Create a command buffer to hold commands.
     id<MTLCommandBuffer> _mCommandBuffer = [_mCommandQueue commandBuffer];
     assert(_mCommandBuffer != nil);
@@ -301,7 +301,7 @@ struct metal_vector compute(struct metal_config* metal_config,
         NSLog(@"Failed to find the command queue.");
     }
 
-    NSLog(@"Sending:");
+    //NSLog(@"Sending:");
     // Create a command buffer to hold commands.
     id<MTLCommandBuffer> _mCommandBuffer = [_mCommandQueue commandBuffer];
     assert(_mCommandBuffer != nil);
@@ -429,12 +429,13 @@ struct metal_matrix computeMatrix(struct metal_config* metal_config,
     size_t cols;
 
     if (operation == METAL_MAT_ADD) {
-        if (*dataRowsA != *dataRowsB || *dataColsA != *dataColsB) {
+        if (bufferA->data_rows != bufferB->data_rows || bufferA->data_cols != bufferB->data_cols) {
+            printf("Different sizes in Add function. A rows %zu, cols %zu\nB rows %zu, cols %zu\n\n", bufferA->data_rows, bufferA->data_cols, bufferB->data_rows, bufferB->data_cols);
             @throw [NSException exceptionWithName:@"MyException" reason:@"matrices are different sizes." userInfo:nil];
         }
     } else if (operation == METAL_MAT_MUL) {
         if (bufferA->data_cols != bufferB->data_rows) {
-            //printf("A rows %zu, cols %zu\nB rows %zu, cols %zu\n\n", bufferA->data_rows, bufferA->data_cols, bufferB->data_rows, bufferB->data_cols);
+            printf("A rows %zu, cols %zu\nB rows %zu, cols %zu\n\n", bufferA->data_rows, bufferA->data_cols, bufferB->data_rows, bufferB->data_cols);
             @throw [NSException exceptionWithName:@"MyException" reason:@"matrices have different common dimension for matmul." userInfo:nil];
         }
     } else {
@@ -579,6 +580,7 @@ struct metal_matrix computeMatrix(struct metal_config* metal_config,
     bufferResult->data_rows_ptr = bufferResultrows;
     bufferResult->data_cols_ptr = bufferResultcols;
     bufferResult->metal_config.device = _mDevice;
+    bufferResult->metal_config.library = _mLibrary;
 
     return *bufferResult;
 }
