@@ -1,6 +1,7 @@
 # Racket Calculations on a Metal
 
-It's my FFI learning playground.  
+This repo shows how to call Metal kernels from Racket.  
+It's a learning playground, you won't find here any high-level stuff.  
 
 ## Overview
 
