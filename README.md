@@ -76,7 +76,7 @@ It will build the two files under *Build/Products/Debug/*:
 
 ## Racket FFI
 
-Those are the main ffi bindings to my functions.
+Those are the main ffi bindings to my functions. Together with dylib and metallib mentioned above, they are all that is needed to create simple vectors/matrices and make really basic operations.  
 ```
 racket ./metal-ffi.rkt
 ```
