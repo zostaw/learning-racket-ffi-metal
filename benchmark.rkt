@@ -125,8 +125,8 @@
 |#
 (module+ benchmark
   (require benchmark)
-  (define out-dim 1e5)
-  (define inp-dim 1e3)
+  (define out-dim 1e3)
+  (define inp-dim 1e5)
 
   ; flomat
   (define tensor (define-tensor out-dim inp-dim))

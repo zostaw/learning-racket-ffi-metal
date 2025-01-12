@@ -90,33 +90,41 @@ raco test test.rkt
 
 ## Benchmarks
 
+Those are not very rigorous. The kernels are not optimized, but just to see how does it compare to CPU-optimized operations, here it is.
 To run execute that:
 
 ```
 racket -l racket/base -e '(require (submod "benchmark.rkt" benchmark))'
 ```
 
-Some example results:
+Some example results for [1e3, 1]x[1e5, 1e3]:
 
 >       Flomat: 195.611083984375
 >       Vector: 181.384033203125
->       Metal: 30.556884765625
-
->       Flomat: 176.68701171875
->       Vector: 177.373046875
->       Metal: 48.281982421875
-
->       Flomat: 170.9189453125
->       Vector: 170.1669921875
->       Metal: 31.268798828125
+>       Metal:   30.556884765625
 
 >       Flomat: 179.22509765625
 >       Vector: 167.153076171875
->       Metal: 52.55712890625
+>       Metal:   52.55712890625
 
 >       Flomat: 173.863037109375
 >       Vector: 168.3330078125
->       Metal: 27.2109375
+>       Metal:   27.2109375
 
-They're usually around 3-6x improvements. One might expect that to be orders of magnitude better.  
-I suspect it's because my kernels aren't well optimized. I just use a really simple one for multiplication.
+Some example results for [1e5, 1]x[1e3, 1e5]:
+>       Flomat: 322.506103515625
+>       Vector: 331.7861328125
+>       Metal:   40.25390625
+
+>       Flomat: 326.198974609375
+>       Vector: 329.2919921875
+>       Metal:   44.015869140625
+
+>       Flomat: 297.712890625
+>       Vector: 245.10302734375
+>       Metal:   35.764892578125
+
+One might expect that to be orders of magnitude better.  
+They hugely depend on what are the exact operations and dimensions.  
+I suspect it's because my kernels aren't optimized at all. I just use a really simple one for multiplication.  
+I'm gonna have to read more about the specifics of the metal language at some point, but it's really to get a grasp of what it's all about.  
