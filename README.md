@@ -98,7 +98,7 @@ To run execute that:
 racket -l racket/base -e '(require (submod "benchmark.rkt" benchmark))'
 ```
 
-Some example results for [1e3, 1]x[1e5, 1e3]:
+Some example results for [1e5, 1e3]x[1e3, 1]:
 
 >       Flomat: 195.611083984375
 >       Vector: 181.384033203125
@@ -112,7 +112,7 @@ Some example results for [1e3, 1]x[1e5, 1e3]:
 >       Vector: 168.3330078125
 >       Metal:   27.2109375
 
-Some example results for [1e5, 1]x[1e3, 1e5]:
+Some example results for [1e3, 1e5]x[1e5, 1]:
 >       Flomat: 322.506103515625
 >       Vector: 331.7861328125
 >       Metal:   40.25390625
