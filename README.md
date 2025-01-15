@@ -52,7 +52,7 @@ Just like *list->mvector* and *mvector->list*, but with matrix in mind.
 It requires the list to be 2D of course.  
 
 **compute-mat-add | compute-mat-mul**
-Matrix operations. They take 2 *metal_vector*'s and return a new one.  
+Matrix operations. They take 2 *metal_matrix*'s and return a new one.  
 You can see in [examples.rkt](./examples.rkt) how to use them.
 
 
